@@ -1,0 +1,1339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<base target="_top">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0F172A">
+<meta name="color-scheme" content="light">
+<title>TripLedger</title>
+<style>
+  :root {
+    color-scheme: light;
+    --ink: #0F172A; --ink2: #334155; --mute: #64748B; --bg: #F1F5F9;
+    --card: #FFFFFF; --line: #E2E8F0; --inp: #F8FAFC; --btn: #0F172A; --btnt: #FFFFFF;
+    --accent: #F59E0B; --go: #10B981; --wait: #F97316; --stop: #EF4444; --ind: #4338CA; --r: 12px;
+    --shadow: 0 1px 2px rgba(15,23,42,.04), 0 4px 12px rgba(15,23,42,.05);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; font-size: 14px; line-height: 1.35; }
+  .wrap { max-width: 420px; margin: 0 auto; padding: 12px 12px 100px; }
+  h1 { font-size: 18px; font-weight: 800; margin: 0; letter-spacing: -.3px; }
+  h2 { font-size: 14px; font-weight: 700; margin: 0; letter-spacing: -.2px; }
+  .sub { color: var(--mute); font-size: 13px; margin-top: 1px; }
+  .hide { display: none !important; }
+
+  .spin { display: flex; justify-content: center; padding: 60px 0; }
+  .spin i { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--ink); animation: sp .8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+
+  .top, .head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .top { position: relative; }
+  .top .grow { flex: 1; min-width: 0; }
+  .avatar { width: 34px; height: 34px; border-radius: 10px; background: var(--btn); color: var(--btnt); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .back { width: 34px; height: 34px; margin: 0; padding: 0; flex: none; border-radius: 10px; background: var(--card); color: var(--ink); font-size: 16px; box-shadow: var(--shadow); }
+
+  button { width: 100%; padding: 11px; margin-top: 10px; font-size: 14px; font-weight: 600; font-family: inherit; border: 0; border-radius: 10px; cursor: pointer; background: var(--btn); color: var(--btnt); transition: transform .08s, opacity .2s; }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .5; }
+  .accent { background: var(--accent); color: #0F172A; }
+  .ghost { background: transparent; color: var(--mute); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .mini { width: auto; margin: 0; padding: 6px 10px; font-size: 14px; border-radius: 8px; }
+
+  .card { background: var(--card); border-radius: var(--r); padding: 4px 12px 12px; box-shadow: var(--shadow); }
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--mute); margin: 10px 0 4px; text-transform: uppercase; letter-spacing: .4px; }
+  input, select { width: 100%; padding: 9px 11px; font-size: 16px; font-family: inherit; color: var(--ink); border: 1.5px solid var(--line); border-radius: 8px; background: var(--inp); appearance: none; -webkit-appearance: none; }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 32px; }
+  input:focus, select:focus { outline: none; border-color: var(--ink); background: var(--card); }
+  .err { color: var(--stop); margin-top: 8px; font-size: 14px; font-weight: 500; }
+  .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; margin-top: 8px; cursor: pointer; box-shadow: var(--shadow); display: block; }
+
+  /* Receipt photo picker */
+  .pick { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .pick button {
+    margin: 0; padding: 12px 6px; background: var(--inp); color: var(--ink);
+    box-shadow: inset 0 0 0 1.5px var(--line); border-radius: 10px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    font-size: 14px; font-weight: 600;
+  }
+  .pick button span { font-size: 22px; line-height: 1; }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 0 14px; }
+  .thumbs:empty { display: none; }
+  .pwrap { position: relative; display: inline-block; }
+  .pdel {
+    position: absolute; top: 2px; right: -8px; width: 22px; height: 22px;
+    margin: 0; padding: 0; border-radius: 50%; background: var(--stop);
+    color: #fff; font-size: 13px; line-height: 22px;
+  }
+  .pcount { margin-top: 6px; }
+  .pcount:empty { display: none; }
+
+  .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .chips button { margin: 0; padding: 8px 4px; font-size: 14px; background: var(--inp); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); border-radius: 8px; }
+  .chips button small { font-weight: 500; opacity: .75; font-size: 13px; }
+  .chips button.on { background: var(--btn); color: var(--btnt); box-shadow: none; }
+
+  .hero { position: relative; overflow: hidden; color: #fff; border-radius: 14px; padding: 14px; margin-bottom: 10px; background: linear-gradient(135deg, #0F172A 0%, #1E293B 55%, #334155 100%); box-shadow: 0 8px 20px rgba(15,23,42,.2); }
+  .hero.click { cursor: pointer; }
+  .hero::before { content: ''; position: absolute; right: -30px; top: -30px; width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle, rgba(245,158,11,.35), transparent 70%); }
+  .hero-top { display: flex; justify-content: space-between; align-items: center; position: relative; }
+  .hero-veh { font-size: 13px; font-weight: 600; opacity: .8; }
+  .hero-id { font-size: 20px; font-weight: 800; letter-spacing: -.4px; margin-top: 6px; position: relative; }
+  .hero-row { font-size: 14px; opacity: .85; margin-top: 2px; position: relative; }
+  .hero button { position: relative; padding: 9px; font-size: 14px; margin-top: 8px; }
+  .hrow { display: flex; gap: 8px; position: relative; margin-top: 8px; }
+  .hrow button { flex: 1; margin: 0; width: auto; }
+  .hero button.endb { background: rgba(255,255,255,.16); color: #fff; }
+  .route { position: relative; margin-top: 6px; }
+  .rt { position: relative; display: flex; gap: 10px; padding-bottom: 12px; }
+  .rt::before { content: ''; position: absolute; left: 13px; top: 28px; bottom: -2px; width: 2px; background: var(--line); }
+  .rt:last-child { padding-bottom: 0; }
+  .rt:last-child::before { display: none; }
+  .rt-n { width: 28px; height: 28px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; color: #fff; background: var(--ind); z-index: 1; }
+  .rt-n.s { background: var(--go); } .rt-n.e { background: var(--stop); } .rt-n.w { background: var(--wait); }
+  .rt-b { flex: 1; min-width: 0; background: var(--card); border-radius: 10px; padding: 8px 10px; box-shadow: var(--shadow); }
+  .rt.tmp .rt-b { opacity: .6; }
+  .rt-k { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--mute); }
+  .rt-t { font-size: 14px; font-weight: 700; margin-top: 1px; }
+  .rt-s { font-size: 13px; color: var(--mute); margin-top: 2px; }
+  .rt-b a { display: inline-block; margin-top: 6px; color: var(--ink); font-weight: 600; font-size: 13px; }
+  input[type=checkbox] { -webkit-appearance: checkbox; appearance: auto; width: 24px; height: 24px; padding: 0; margin: 0; flex: none; accent-color: var(--ink); }
+  label.chk { display: flex; align-items: center; gap: 12px; margin: 12px 0 0; padding: 11px 12px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--inp); color: var(--ink); font-size: 15px; font-weight: 600; text-transform: none; letter-spacing: 0; cursor: pointer; }
+  .hero.empty { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
+  .hero.empty::before { display: none; }
+  .hero.empty .hero-row { color: var(--mute); opacity: 1; }
+  .hero button.mini { width: auto; padding: 7px 16px; font-size: 14px; }
+
+  .pill { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; }
+  .pill.wait { background: rgba(249,115,22,.16); color: var(--wait); }
+  .pill.done { background: rgba(16,185,129,.16); color: var(--go); }
+  .hero .pill.wait { background: var(--wait); color: #fff; }
+  .hero .pill.done { background: var(--go); color: #fff; }
+
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 4px; }
+  .stat { background: var(--card); border-radius: 10px; padding: 8px 10px; box-shadow: var(--shadow); }
+  .stat.flat { box-shadow: none; background: var(--inp); margin-top: 10px; }
+  .stat span { display: block; font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: .3px; }
+  .stat b { display: block; font-size: 14px; font-weight: 800; margin-top: 2px; letter-spacing: -.2px; }
+  .pos { color: var(--go); } .neg { color: var(--stop); }
+  .okc { color: var(--go); } .bad { color: var(--stop); }
+
+  .offline { position: fixed; top: 0; left: 0; right: 0; z-index: 70; background: var(--stop); color: #fff; text-align: center; padding: 6px; font-size: 14px; font-weight: 600; }
+  .menu { position: absolute; left: 0; top: 42px; z-index: 20; background: var(--card); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(15,23,42,.2); min-width: 150px; }
+  .menu button { margin: 0; }
+
+  .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--line); border-radius: 12px; padding: 4px; margin: 12px 0 8px; }
+  .seg-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); background: var(--card); border-radius: 9px; box-shadow: 0 1px 3px rgba(15,23,42,.18), 0 1px 2px rgba(15,23,42,.1); transition: transform .22s ease; }
+  .seg button { position: relative; z-index: 1; margin: 0; padding: 9px 2px; background: transparent; color: var(--mute); box-shadow: none; font-size: 14px; font-weight: 600; border-radius: 9px; transition: color .2s; }
+  .seg button.on { color: var(--ink); }
+  .seg button span { opacity: .8; font-weight: 500; }
+
+  .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: center; background: var(--card); box-shadow: 0 -2px 12px rgba(15,23,42,.08); }
+  .nav button { flex: 1; max-width: 140px; margin: 0; border-radius: 0; background: transparent; color: var(--mute); padding: 8px 4px; font-size: 20px; line-height: 1.2; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .nav button span { font-size: 13px; font-weight: 600; }
+  .nav button.on { color: var(--ink); }
+  .nav button.on span { border-bottom: 2px solid var(--accent); }
+  .fab { position: fixed; right: max(16px, calc(50% - 194px)); bottom: 72px; width: auto; margin: 0; padding: 12px 18px; border-radius: 26px; background: var(--accent); color: #0F172A; font-size: 15px; box-shadow: 0 6px 16px rgba(15,23,42,.3); z-index: 41; }
+
+  .amtbox { display: flex; align-items: center; gap: 6px; border: 1.5px solid var(--line); background: var(--inp); border-radius: 10px; padding: 6px 12px; }
+  .amtbox span { font-size: 28px; font-weight: 700; color: var(--mute); }
+  .amtbox input.amt { border: 0; background: transparent; font-size: 34px; font-weight: 800; padding: 4px 0; letter-spacing: -.5px; }
+  .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .pad button { margin: 0; padding: 14px 0; font-size: 22px; font-weight: 700; background: var(--inp); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
+  .row2 { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .row2:last-child { border-bottom: 0; }
+
+  .sec { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; }
+  .tcard { background: var(--card); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; box-shadow: var(--shadow); border-left: 4px solid var(--go); }
+  .tc-top { display: flex; justify-content: space-between; align-items: center; }
+  .tc-top b { font-size: 14px; font-weight: 800; letter-spacing: -.2px; }
+  .tc-money { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 14px; }
+  .tc-money small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; text-transform: uppercase; }
+  .tc-money b { font-weight: 700; }
+
+  .item { background: var(--card); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow); }
+  .item.tmp { opacity: .6; }
+  .ico { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex: none; }
+  .ico.a { background: rgba(16,185,129,.14); }
+  .ico.e { background: rgba(245,158,11,.16); }
+  .ico.s { background: rgba(99,102,241,.14); color: var(--ind); font-weight: 800; font-size: 14px; }
+  .item .mid { flex: 1; min-width: 0; }
+  .item .mid b { font-size: 14px; font-weight: 700; }
+  .item .mid div { font-size: 13px; color: var(--mute); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .item .r { font-size: 12px; color: var(--mute); text-align: right; }
+  .item a { color: var(--ink); font-weight: 600; }
+  .item a.bad { color: var(--stop); }
+  .clist { max-height: 180px; overflow-y: auto; margin-top: 4px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--card); }
+  .clist div { padding: 9px 11px; font-size: 14px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .clist div:last-child { border-bottom: 0; }
+  .clist div:active { background: var(--inp); }
+  .clist .no { color: var(--mute); cursor: default; }
+  .empty-note { color: var(--mute); font-size: 14px; padding: 2px; }
+
+  .mapcard { background: var(--card); border-radius: var(--r); padding: 8px 10px 10px; box-shadow: var(--shadow); margin-top: 10px; }
+  .map { display: block; width: 100%; height: 110px; border: 0; border-radius: 8px; margin-top: 6px; background: var(--line); }
+  .rbox { position: relative; overflow: hidden; }
+  .rimg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; cursor: pointer; background: var(--line); }
+  .cnt {
+    position: absolute; right: 1px; bottom: 1px; z-index: 2; min-width: 14px; height: 14px;
+    padding: 0 3px; border-radius: 7px; background: #0F172A; color: #fff;
+    font-size: 9px; font-weight: 700; line-height: 14px; text-align: center; pointer-events: none;
+  }
+
+  #big { position: fixed; inset: 0; z-index: 50; background: rgba(15,23,42,.92); display: flex; align-items: center; justify-content: center; padding: 12px; }
+  #big img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+  #big .bn {
+    position: absolute; top: calc(50% - 20px); left: 10px; width: 40px; height: 40px; margin: 0; padding: 0;
+    border-radius: 50%; background: rgba(255,255,255,.18); color: #fff; font-size: 24px; line-height: 38px;
+  }
+  #big .bn.r { left: auto; right: 10px; }
+  #bCnt { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #fff; font-size: 14px; font-weight: 600; }
+
+  .modal { position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  .modal-card { background: var(--card); border-radius: 16px; padding: 16px; width: 100%; max-width: 340px; box-shadow: 0 20px 50px rgba(15,23,42,.35); }
+  .modal-card h2 { font-size: 16px; }
+  .steps { margin: 0 0 4px; padding-left: 18px; font-size: 14px; color: var(--ink2); }
+  .steps li { margin-bottom: 6px; }
+
+  .toast { position: fixed; left: 12px; right: 12px; bottom: 76px; max-width: 396px; margin: 0 auto; background: #0F172A; color: #fff; padding: 10px; border-radius: 10px; text-align: center; font-size: 14px; font-weight: 500; box-shadow: 0 8px 24px rgba(15,23,42,.3); z-index: 80; }
+</style>
+</head>
+<body>
+<div id="offline" class="offline hide">No internet. Changes will not save.</div>
+<div class="wrap">
+  <div id="loading" class="spin"><i></i></div>
+
+  <div id="loginBox" class="hide">
+    <div style="margin:16px 0 14px;display:flex;align-items:center;gap:10px">
+      <div class="avatar" style="width:40px;height:40px;font-size:20px;cursor:default">🚚</div>
+      <div>
+        <h1 style="font-size:20px">TripLedger</h1>
+        <div class="sub">Sign in with your user and PIN.</div>
+      </div>
+    </div>
+    <div class="card">
+      <label for="user">User</label>
+      <input id="user" autocomplete="username">
+      <label for="pin">PIN</label>
+      <input id="pin" type="password" autocomplete="current-password">
+    </div>
+    <button id="loginBtn" onclick="doLogin()">Sign in</button>
+    <div id="msg" class="err"></div>
+  </div>
+
+  <div id="appBox" class="hide">
+
+    <div id="homeView">
+      <div class="top">
+        <div class="avatar" id="av" onclick="toggleMenu(event)"></div>
+        <div class="grow">
+          <h1 id="hello"></h1>
+          <div class="sub" id="sub"></div>
+        </div>
+        <div id="avMenu" class="menu hide"><button class="ghost" onclick="doLogout()">Sign out</button></div>
+      </div>
+      <div id="runBox"></div>
+      <div class="stats">
+        <div class="stat"><span>Advance</span><b id="tAdv"></b></div>
+        <div class="stat"><span>Expenses</span><b id="tExp"></b></div>
+        <div class="stat"><span>Balance</span><b id="tBal"></b></div>
+      </div>
+      <div class="sec"><h2>Completed trips</h2></div>
+      <div id="list"></div>
+    </div>
+
+    <div id="startView" class="hide">
+      <div class="head">
+        <button class="back" onclick="showHome()">←</button>
+        <div><h1>Start trip</h1><div class="sub">Location is captured when you start</div></div>
+      </div>
+      <div class="card">
+        <label>Vehicle</label>
+        <div id="sVeh" class="chips" style="grid-template-columns:repeat(2,1fr)"></div>
+        <label for="sKm">Start KM</label>
+        <input id="sKm" type="number" inputmode="decimal" step="any">
+        <div class="sub" id="sHint" style="margin-top:4px"></div>
+        <label for="sPur">Route name (optional)</label>
+        <input id="sPur" maxlength="200">
+      </div>
+      <button id="sGo" onclick="submitStart()">Start trip</button>
+      <div class="err" id="sMsg"></div>
+      <div id="sLoc" class="sub" style="margin-top:10px">Looking for location...</div>
+      <button class="ghost" onclick="testLoc('sLoc')">Retry location</button>
+      <div id="sMap"></div>
+    </div>
+
+    <div id="endView" class="hide">
+      <div class="head">
+        <button class="back" onclick="showHome()">←</button>
+        <div><h1>End trip</h1><div class="sub" id="eInfo"></div></div>
+      </div>
+      <div class="card">
+        <label for="eKm">End KM</label>
+        <input id="eKm" type="number" inputmode="decimal" step="any" oninput="distChange()">
+        <div class="stat flat">
+          <span>Distance this trip</span><b id="eDist" style="font-size:32px;letter-spacing:-1px">0 km</b>
+        </div>
+        <div id="eWarn" class="err hide"></div>
+      </div>
+      <div id="eStats" class="stats" style="margin-top:10px"></div>
+      <button id="eGo" class="accent" onclick="submitEnd()">End trip</button>
+      <div class="err" id="eMsg"></div>
+      <div id="eLoc" class="sub" style="margin-top:10px">Looking for location...</div>
+      <button class="ghost" onclick="testLoc('eLoc')">Retry location</button>
+      <div id="eMap"></div>
+    </div>
+
+    <div id="detailView" class="hide">
+      <div class="head">
+        <button class="back" onclick="showHome()">←</button>
+        <h1>Trip details</h1>
+      </div>
+      <div id="tbody"></div>
+    </div>
+
+    <div id="profileView" class="hide">
+      <div class="head">
+        <button class="back" onclick="showHome()">←</button>
+        <h1>Profile</h1>
+      </div>
+      <div class="card" id="profBody"></div>
+      <button class="ghost" onclick="doLogout()">Sign out</button>
+    </div>
+
+    <div id="advView" class="hide">
+      <div class="head">
+        <button class="back" onclick="backToTrip()">←</button>
+        <div><h1>Add advance</h1><div class="sub" id="aInfo"></div></div>
+      </div>
+      <div class="card">
+        <label>Amount</label>
+        <div class="amtbox"><span>₹</span><input id="aAmt" class="amt" readonly inputmode="none" placeholder="0"></div>
+        <div id="aPad" class="pad"></div>
+        <label>Mode</label>
+        <div id="aModes" class="chips"></div>
+        <label for="aRem">Remarks (optional)</label>
+        <input id="aRem" maxlength="200">
+      </div>
+      <button id="aGo" onclick="saveAdv()">Save advance</button>
+      <div class="err" id="aMsg"></div>
+    </div>
+
+    <div id="expView" class="hide">
+      <div class="head">
+        <button class="back" onclick="backToTrip()">←</button>
+        <div><h1>Add expense</h1><div class="sub" id="xInfo"></div></div>
+      </div>
+      <div class="card">
+        <label>Category</label>
+        <select id="xCat"></select>
+        <input id="xCatIn" class="hide" maxlength="100" placeholder="Category">
+        <label>Amount</label>
+        <div class="amtbox"><span>₹</span><input id="xAmt" class="amt" readonly inputmode="none" placeholder="0"></div>
+        <div id="xPad" class="pad"></div>
+        <label id="xPLbl">Receipt photos</label>
+        <div class="pick">
+          <button type="button" onclick="$('xCam').click()"><span>📷</span>Camera</button>
+          <button type="button" onclick="$('xGal').click()"><span>🖼️</span>Gallery</button>
+        </div>
+        <input id="xCam" type="file" accept="image/*" capture="environment" class="hide" onchange="pickPhoto(this)">
+        <input id="xGal" type="file" accept="image/*" multiple class="hide" onchange="pickPhoto(this)">
+        <div id="xThumbs" class="thumbs"></div>
+        <div id="xCnt" class="sub pcount"></div>
+      </div>
+      <button id="xGo" onclick="saveExp()">Save expense</button>
+      <div class="err" id="xMsg"></div>
+    </div>
+
+    <div id="stopView" class="hide">
+      <div class="head">
+        <button class="back" onclick="backToTrip()">←</button>
+        <div><h1>Add route stop</h1><div class="sub" id="pInfo"></div></div>
+      </div>
+      <div class="card">
+        <label for="cQ">Customer</label>
+        <div class="dd">
+          <input id="cQ" placeholder="Search customer…" autocomplete="off" onfocus="openDD()" oninput="filterDD()">
+          <div id="cList" class="clist hide"></div>
+        </div>
+        <div id="cSel" class="sub" style="margin-top:4px"></div>
+        <label class="chk"><input type="checkbox" id="pRetBox" onchange="pickRet(this.checked?'Yes':'No')"><span>Is returned</span></label>
+        <label for="pNote">Note (optional)</label>
+        <input id="pNote" maxlength="300">
+      </div>
+      <button id="pGo" onclick="saveStop()">Save stop</button>
+      <div class="err" id="pMsg"></div>
+      <div id="pLoc" class="sub" style="margin-top:10px">Looking for location...</div>
+      <button class="ghost" onclick="testLoc('pLoc')">Retry location</button>
+      <div id="pMap"></div>
+    </div>
+
+  </div>
+</div>
+
+<button id="fab" class="fab hide" onclick="fabAdd()"></button>
+<div id="nav" class="nav hide">
+  <button id="navHome" onclick="navTo('home')">🏠<span>Home</span></button>
+  <button id="navTrip" onclick="navTo('trip')">🚚<span>Trip</span></button>
+  <button id="navProf" onclick="navTo('profile')">👤<span>Profile</span></button>
+</div>
+
+<div id="locAlert" class="modal hide">
+  <div class="modal-card">
+    <div style="font-size:28px">📍</div>
+    <h2 style="margin-top:4px">Turn on Location</h2>
+    <div class="sub" id="locHint" style="margin:4px 0 10px"></div>
+    <ol class="steps">
+      <li>Tap <b>Open Location Settings</b> below and turn Location <b>ON</b>.</li>
+      <li>If blocked in Chrome: tap the <b>🔒/tune icon</b> left of the address bar → <b>Permissions</b> → <b>Location</b> → <b>Allow</b>.</li>
+    </ol>
+    <button class="accent" onclick="openLocSettings()">⚙️ Open Location Settings</button>
+    <button onclick="retryLoc()">📍 Allow location</button>
+    <button class="ghost" onclick="closeLocAlert()">Close</button>
+  </div>
+</div>
+<div id="big" class="hide" onclick="closeBig()"><img id="bigImg">
+  <button class="bn hide" id="bPrev" onclick="event.stopPropagation();stepBig(-1)">‹</button>
+  <button class="bn r hide" id="bNext" onclick="event.stopPropagation();stepBig(1)">›</button>
+  <div id="bCnt"></div></div>
+<div id="toast" class="toast hide"></div>
+
+<script>
+/* ---------- server calls ----------
+   Inside Apps Script this uses google.script.run.
+   On your own hosting (GitHub Pages) it sends the same calls to API_URL. */
+var API_URL='https://script.google.com/macros/s/AKfycby8QhvxptvEnFy6ldHeIuBH0SEl66DUBCFRITChptE/dev';   // the Apps Script web app address that ends with /exec
+var RUN=(function(){
+  if(typeof google!=='undefined' && google.script && google.script.run) return google.script.run;
+  function make(ok,fail){
+    return new Proxy({},{get:function(t,name){
+      if(name==='withSuccessHandler') return function(f){ return make(f,fail); };
+      if(name==='withFailureHandler') return function(f){ return make(ok,f); };
+      return function(){
+        var args=Array.prototype.slice.call(arguments);
+        if(String(API_URL).indexOf('PASTE')===0){ if(fail) fail(new Error('API_URL is not set in index.html')); return; }
+        fetch(API_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({fn:String(name),args:args})})
+          .then(function(r){ return r.json(); })
+          .then(function(j){ return {j:j}; }, function(e){ return {e:e}; })
+          .then(function(x){
+            if(x.e || !x.j || x.j.error){ if(fail) fail(x.e || new Error((x.j&&x.j.error)||'Server error')); }
+            else if(ok) ok(x.j.result);
+          });
+      };
+    }});
+  }
+  return make(null,null);
+})();
+
+var KEY='driver_token', DK='driver_data', DATA=null, POS=null, BUSY=false, SEL='', ETID='', ESK=0;
+var CURT='', ATID='', AMODE='', ADVID='', PEND=0, XTID='', XID='', XPH=[];
+var MAXPH=5, BL=[], BI=0, CUR='home', TAB='stp';
+var PTID='', PID='', CSEL='', PRET='No';
+var WID=null, PBOX='', LASTMAP=null, LALERT=false, MAPON=false;   // live location: watch id, which screen box, last map position
+var LOC={}, RFAIL={};      // LOC: receipt photos kept in memory only; RFAIL: receipts that failed to upload
+var WARN_KM=2000, DEF_MODES=['Cash','UPI','Bank'];
+var L_AGAIN='again', RK='driver_reload';   // RK: remembers the screen to reopen after a refresh
+
+function $(i){return document.getElementById(i);}
+function show(id){['loading','loginBox','appBox'].forEach(function(x){$(x).classList.toggle('hide',x!==id);}); navSync();}
+
+var VIEWS=['home','start','end','detail','adv','exp','stop','profile'];
+function navSync(){
+  var on=!$('appBox').classList.contains('hide');
+  $('nav').classList.toggle('hide', !on || ['home','detail','profile'].indexOf(CUR)<0);
+  $('navHome').classList.toggle('on',CUR==='home');
+  $('navTrip').classList.toggle('on',CUR==='detail');
+  $('navProf').classList.toggle('on',CUR==='profile');
+  fabUpdate();
+}
+function view(n){
+  VIEWS.forEach(function(x){$(x+'View').classList.toggle('hide',x!==n);});
+  if(['start','end','stop'].indexOf(n)<0) stopWatch();   // GPS runs only on these three screens
+  CUR=n; navSync();
+  if(n!=='home' && history.state && history.state.a===0){ try{history.pushState({a:1},'');}catch(e){} }
+  window.scrollTo(0,0);
+}
+
+window.addEventListener('popstate',function(){
+  if($('appBox').classList.contains('hide')) return;
+  if(!$('big').classList.contains('hide')){ closeBig(); try{history.pushState({a:1},'');}catch(e){} }
+  else if(!$('locAlert').classList.contains('hide')){ closeLocAlert(); try{history.pushState({a:1},'');}catch(e){} }
+  else if(CUR==='adv'||CUR==='exp'||CUR==='stop') backToTrip();
+  else if(CUR==='start'||CUR==='end'||CUR==='detail'||CUR==='profile') showHome();
+  // on Home: Back leaves the app
+});
+
+function showHome(){ CURT=''; view('home'); }
+function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){return null;}}
+function getCached(){try{var c=JSON.parse(ls(DK));return c&&c.trips?c:null;}catch(e){return null;}}
+// photos and upload flags are never saved on the phone, only receipt links
+function persist(){ if(DATA) ls(DK,JSON.stringify(DATA,function(k,v){return (k==='local'||k==='upl')?undefined:v;})); }
+function clearAll(){ls(KEY,null);ls(DK,null);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function jq(s){return String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");}
+function money(n){return Number(n||0).toLocaleString('en-IN');}
+function rupee(n){return '₹'+money(n);}
+function sdate(ms){return ms?new Date(ms).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}):'';}
+function r2(n){return Math.round(n*100)/100;}
+function dt(ms){return ms?new Date(ms).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}):'-';}
+function mapUrl(l){return 'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(l);}
+function cls(b){return b>=0?'pos':'neg';}
+function toast(t){var e=$('toast');e.textContent=t;e.classList.remove('hide');setTimeout(function(){e.classList.add('hide');},2500);}
+function findTrip(id){ return DATA ? DATA.trips.filter(function(t){return t.id===id;})[0] : null; }
+function genId(p){ return p+'-'+Date.now().toString(36).toUpperCase()+Math.random().toString(36).slice(2,6).toUpperCase(); }
+function bigImgs(list,i){ if(!list||!list.length) return; BL=list; BI=i||0; drawBig(); $('big').classList.remove('hide'); }
+function bigImg(src){ if(src) bigImgs([src],0); }
+function drawBig(){
+  $('bigImg').src=BL[BI]; var m=BL.length>1;
+  $('bPrev').classList.toggle('hide',!m); $('bNext').classList.toggle('hide',!m);
+  $('bCnt').textContent=m?(BI+1)+' / '+BL.length:'';
+}
+function stepBig(d){ BI=(BI+d+BL.length)%BL.length; drawBig(); }
+function closeBig(){ $('big').classList.add('hide'); }
+
+function recalc(){
+  var A=0,E=0;
+  DATA.trips.forEach(function(t){
+    t.adv=r2(t.advList.reduce(function(s,a){return s+a.amt;},0));
+    t.exp=r2(t.expList.reduce(function(s,a){return s+a.amt;},0));
+    t.bal=r2(t.adv-t.exp); A+=t.adv; E+=t.exp;
+  });
+  DATA.totals={adv:r2(A),exp:r2(E),bal:r2(A-E)};
+}
+
+/* ---------- home ---------- */
+function render(d){
+  DATA=d;
+  $('av').textContent=d.driver.letter;
+  $('hello').textContent='Hi, '+d.driver.first;
+  $('sub').textContent=d.driver.id+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' so far';
+  var r=d.running;
+  if(r){
+    var rt=findTrip(r.id)||{adv:0,exp:0}, q=esc(jq(r.id));
+    $('runBox').innerHTML =
+      '<div class="hero click" onclick="openTripId(\''+q+'\')">'+
+        '<div class="hero-top"><span class="pill wait">● In progress</span><span class="hero-veh">'+esc(r.vno)+' · Tap for details ➔</span></div>'+
+        '<div class="hero-id">'+esc(r.id)+'</div>'+
+        (r.route?'<div class="hero-row" style="font-weight:600">🛣 '+esc(r.route)+'</div>':'')+
+        '<div class="hero-row">'+(rt.start?dt(rt.start)+' · ':'')+'Start '+esc(r.sk)+' km · Adv '+rupee(rt.adv)+' · Exp '+rupee(rt.exp)+'</div>'+
+        '<div class="hrow">'+
+          '<button class="accent mini" onclick="event.stopPropagation();openStop(\''+q+'\')">📍 Add stop</button>'+
+          '<button class="mini endb" onclick="event.stopPropagation();endTrip(\''+q+'\')">End trip</button>'+
+        '</div>'+
+      '</div>';
+  } else {
+    $('runBox').innerHTML =
+      '<div class="hero empty">'+
+        '<div class="hero-id" style="margin-top:0;font-size:16px">No trip running</div>'+
+        '<div class="hero-row">Tap Start trip when your journey begins.</div>'+
+        '<button class="accent" onclick="startTrip()">🚚 Start trip</button>'+
+      '</div>';
+  }
+  $('tAdv').textContent=rupee(d.totals.adv);
+  $('tExp').textContent=rupee(d.totals.exp);
+  $('tBal').textContent=rupee(d.totals.bal);
+  $('tBal').className=cls(d.totals.bal);
+  var done=d.trips.filter(function(t){return !t.running;});
+  $('list').innerHTML=done.length ? done.map(function(t){
+    return '<div class="tcard done" onclick="openTripId(\''+esc(jq(t.id))+'\')">'+
+      '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill done">Completed</span></div>'+
+      (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
+      '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+' · '+esc(t.tk)+' km</div>'+
+      '<div class="tc-money">'+
+        '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
+        '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
+        '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
+      '</div></div>';
+  }).join('') : '<div class="empty-note">No completed trips yet.</div>';
+  show('appBox');
+  if(CURT && !$('detailView').classList.contains('hide')) drawDetail(CURT);
+}
+
+function toggleMenu(e){ e.stopPropagation(); $('avMenu').classList.toggle('hide'); }
+document.addEventListener('click',function(){ $('avMenu').classList.add('hide'); });
+
+function navTo(x){
+  if(!DATA) return;
+  if(x==='home') showHome();
+  else if(x==='profile') renderProfile();
+  else if(DATA.running) openTripId(DATA.running.id);
+  else toast('No trip running');
+}
+function renderProfile(){
+  var t=DATA.totals;
+  function row(a,b){ return '<div class="row2"><span>'+a+'</span><b>'+b+'</b></div>'; }
+  $('profBody').innerHTML =
+    row('Name',esc(DATA.driver.name||DATA.driver.first))+row('Driver ID',esc(DATA.driver.id))+row('Trips',DATA.tripCount)+
+    row('Advance',rupee(t.adv))+row('Expenses',rupee(t.exp))+
+    row('Balance','<span class="'+cls(t.bal)+'">'+rupee(t.bal)+'</span>');
+  view('profile');
+}
+
+/* ---------- trip details ---------- */
+function openTripId(id){ CURT=id; TAB='stp'; drawDetail(id); view('detail'); }
+
+function thumb(link,sz){ var m=/\/d\/([^\/?]+)/.exec(link); return m?'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w'+sz:''; }
+
+function rlinks(e){ return String(e.photo||'').split(/\s+/).filter(function(u){return /^https?:/.test(u);}); }
+
+/* receipt icon on an expense row: small photo if there is one */
+function expIcon(e){
+  var lp=LOC[e.id], ll=rlinks(e), src='', n=0;
+  if(lp&&lp.length){ src=lp[0]; n=lp.length; }
+  else if(ll.length){ src=thumb(ll[0],200); n=ll.length; }
+  if(!src) return '<div class="ico e">🧾</div>';
+  return '<div class="ico e rbox">🧾<img class="rimg" src="'+esc(src)+'" onclick="showRc(\''+esc(jq(e.id))+'\')" onerror="this.remove()" alt="Receipt">'+
+    (n>1?'<span class="cnt">'+n+'</span>':'')+'</div>';
+}
+function rcount(e){ var lp=LOC[e.id]; return (lp&&lp.length)?lp.length:rlinks(e).length; }
+
+function showRc(id){
+  var t=findTrip(CURT), e=t&&t.expList.filter(function(x){return x.id===id;})[0];
+  if(!e) return;
+  if(LOC[id]&&LOC[id].length){ bigImgs(LOC[id],0); return; }
+  bigImgs(rlinks(e).map(function(u){return thumb(u,1000)||u;}),0);
+}
+
+/* ---------- route timeline (Start -> stops -> End) ---------- */
+function rtNode(cls,dot,kick,title,sub,loc,tmp){
+  return '<div class="rt'+(tmp?' tmp':'')+'"><div class="rt-n '+cls+'">'+dot+'</div>'+
+    '<div class="rt-b"><div class="rt-k">'+kick+'</div>'+
+    '<div class="rt-t">'+esc(title)+'</div>'+
+    (sub?'<div class="rt-s">'+sub+'</div>':'')+
+    (loc?'<a target="_blank" rel="noopener" href="'+mapUrl(loc)+'">📍 Open in Maps</a>':'')+
+    '</div></div>';
+}
+function routeHtml(t){
+  var h='<div class="route">';
+  h+=rtNode('s','●','Start',t.sname||'Start point',dt(t.start),t.sloc,false);
+  (t.stops||[]).forEach(function(s){
+    var place=s.name?esc(s.name):(s.pending?'Getting place name…':'');
+    var sub=(place?'📍 '+place+' · ':'')+dt(s.ts)+(s.ret==='Yes'?' · ↩ Returned':'')+(s.notes?' · '+esc(s.notes):'');
+    h+=rtNode('p',esc(s.seq),'Stop '+esc(s.seq),s.cust,sub,s.loc,s.pending);
+  });
+  if(t.running){
+    h+='<div class="rt"><div class="rt-n w">➜</div><div class="rt-b"><div class="rt-t">On the way</div><div class="rt-s">Tap + Add stop when you reach a customer</div></div></div>';
+  } else if(t.eloc){
+    h+=rtNode('e','■','End',t.ename||'End point',dt(t.end),t.eloc,false);
+  }
+  return h+'</div>';
+}
+function setTab(k){
+  var t=findTrip(CURT), th=document.querySelector('.seg-thumb'), tl=$('tabList');
+  if(!t||!th||!tl){ TAB=k; drawDetail(CURT); return; }
+  TAB=k;
+  th.style.transform='translateX('+(k==='stp'?0:k==='adv'?100:200)+'%)';
+  document.querySelectorAll('.seg button').forEach(function(b){ b.classList.toggle('on',b.dataset.k===k); });
+  tl.innerHTML=listHtml(t);
+  fabUpdate();
+}
+function fabUpdate(){
+  var f=$('fab'), t=(CUR==='detail'&&CURT&&!$('appBox').classList.contains('hide'))?findTrip(CURT):null, label='';
+  if(t){
+    if(TAB==='stp') label=t.running?'+ Add stop':'';
+    else label=TAB==='adv'?'+ Add advance':'+ Add expense';
+  }
+  f.textContent=label;
+  f.classList.toggle('hide',!label);
+}
+function fabAdd(){
+  if(!CURT) return;
+  if(TAB==='stp') openStop(CURT); else if(TAB==='adv') openAdv(CURT); else openExp(CURT);
+}
+function listHtml(t){
+  var st=t.stops||[], q=esc(jq(t.id));
+  var list;
+  if(TAB==='stp'){
+    list=routeHtml(t);
+  } else if(TAB==='adv'){
+    list=t.advList.length?t.advList.map(function(a){
+      return '<div class="item'+(a.pending?' tmp':'')+'"><div class="ico a">💰</div><div class="mid"><b>'+rupee(a.amt)+'</b><div>'+
+        esc(a.mode)+(a.remarks?' · '+esc(a.remarks):'')+'</div></div><div class="r">'+sdate(a.date)+'</div></div>';
+    }).join(''):'<div class="empty-note">No advances yet.</div>';
+  } else {
+    list=t.expList.length?t.expList.map(function(e){
+      var n=rcount(e), word=n>1?' receipts':' receipt';
+      var retry=RFAIL[e.id]&&LOC[e.id]&&!e.upl;
+      return '<div class="item'+(e.pending?' tmp':'')+'">'+expIcon(e)+
+        '<div class="mid"><b>'+rupee(e.amt)+'</b><div>'+esc(e.cat)+
+          (e.upl?' · uploading '+n+word+'…':
+            retry?' · <a class="bad" href="#" onclick="retryReceipt(\''+q+'\',\''+esc(jq(e.id))+'\');return false">not uploaded, retry</a>':
+            (n?' · <a href="#" onclick="showRc(\''+esc(jq(e.id))+'\');return false">'+n+word+'</a>':''))+
+        '</div></div><div class="r">'+sdate(e.date)+'</div></div>';
+    }).join(''):'<div class="empty-note">No expenses yet.</div>';
+  }
+
+  return list;
+}
+
+function drawDetail(id){
+  var t=findTrip(id);
+  if(!t){ showHome(); return; }
+  var st=t.stops||[], q=esc(jq(t.id));
+  var km=t.running?'Start '+esc(t.sk)+' km':esc(t.sk)+' → '+esc(t.ek)+' km ('+esc(t.tk)+' km)';
+  var tabs=[['stp','Route',st.length],['adv','Advances',t.advList.length],['exp','Expenses',t.expList.length]];
+
+  var list=listHtml(t);
+  $('tbody').innerHTML=
+    '<div class="hero">'+
+      '<div class="hero-top"><span class="pill '+(t.running?'wait':'done')+'">'+(t.running?'● In progress':'✓ Completed')+'</span><span class="hero-veh">'+esc(t.vno)+'</span></div>'+
+      '<div class="hero-id">'+esc(t.id)+'</div>'+
+      (t.route?'<div class="hero-row" style="font-weight:600">🛣 '+esc(t.route)+'</div>':'')+
+      '<div class="hero-row">'+dt(t.start)+' · '+km+'</div>'+
+      (t.running?'<br><button class="accent mini" onclick="endTrip(\''+q+'\')">End trip</button>':'')+
+    '</div>'+
+    '<div class="stats">'+
+      '<div class="stat"><span>Advances</span><b>'+rupee(t.adv)+'</b></div>'+
+      '<div class="stat"><span>Expenses</span><b>'+rupee(t.exp)+'</b></div>'+
+      '<div class="stat"><span>Balance</span><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
+    '</div>'+
+    '<div class="seg"><div class="seg-thumb" style="transform:translateX('+(TAB==='stp'?0:TAB==='adv'?100:200)+'%)"></div>'+tabs.map(function(x){return '<button class="'+(x[0]===TAB?'on':'')+'" data-k="'+x[0]+'" onclick="setTab(\''+x[0]+'\')">'+x[1]+' <span>'+x[2]+'</span></button>';}).join('')+'</div>'+
+    '<div id="tabList">'+list+'</div>'+
+    '';
+  fabUpdate();
+}
+
+/* ---------- add advance ---------- */
+function modesList(){ return (DATA&&DATA.modes&&DATA.modes.length)?DATA.modes:DEF_MODES; }
+
+function drawModes(){
+  $('aModes').innerHTML=modesList().map(function(m,i){
+    return '<button type="button" class="'+(m===AMODE?'on':'')+'" onclick="pickMode('+i+')">'+esc(m)+'</button>';
+  }).join('');
+}
+
+function pickMode(i){ AMODE=modesList()[i]; drawModes(); }
+
+function openAdv(tid, pre){
+  var t=findTrip(tid);
+  if(!t){ toast('Trip not found'); return; }
+  pre=pre||{};
+  ATID=tid;
+  AMODE=pre.mode||modesList()[0]||'';
+  ADVID=pre.id||genId('ADV');
+  $('aInfo').innerHTML='<b>'+esc(t.id)+'</b> · '+esc(t.vno);
+  $('aAmt').value=pre.amt||''; $('aRem').value=pre.remarks||''; $('aMsg').textContent='';
+  drawModes(); view('adv');
+}
+
+function backToTrip(){ if(CURT){ drawDetail(CURT); view('detail'); } else showHome(); }
+
+function dropAdv(tid,id){
+  var t=findTrip(tid); if(!t) return;
+  t.advList=t.advList.filter(function(a){return a.id!==id;});
+  recalc();
+}
+
+function failAdv(tid,item,why){
+  dropAdv(tid,item.id); persist(); render(DATA);
+  toast('Not saved: '+why);
+  if(CURT===tid && !$('detailView').classList.contains('hide')){
+    openAdv(tid,item); $('aMsg').textContent='Not saved: '+why;
+  }
+}
+
+function saveAdv(){
+  var amt=r2(Number($('aAmt').value)), rem=$('aRem').value.trim().slice(0,200), msg=$('aMsg');
+  msg.textContent='';
+  if(!(amt>0)){ msg.textContent='Enter an amount above 0'; return; }
+  if(!AMODE){ msg.textContent='Select a mode'; return; }
+  var t=findTrip(ATID);
+  if(!t){ msg.textContent='Trip not found'; return; }
+
+  var tid=ATID, mode=AMODE, id=ADVID||genId('ADV'); ADVID='';
+  var item={id:id,date:Date.now(),amt:amt,mode:mode,remarks:rem,pending:true};
+  t.advList.unshift(item); recalc(); persist(); PEND++;
+  CURT=tid; view('detail'); render(DATA); toast('Advance saved');
+
+  RUN
+    .withSuccessHandler(function(r){
+      PEND--;
+      if(r.expired){
+        PEND=0; dropAdv(tid,id); clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return;
+      }
+      if(!r.ok){ failAdv(tid,item,r.msg); return; }
+      if(r.id && r.id!==item.id) item.id=r.id;
+      item.pending=false;
+      persist(); render(DATA);
+    })
+    .withFailureHandler(function(e){ PEND--; failAdv(tid,item,e.message); })
+    .addAdvance(ls(KEY),{id:id,tid:tid,amt:amt,mode:mode,remarks:rem});
+}
+
+/* ---------- add expense ---------- */
+function fillCats(sel){
+  var a=(DATA&&DATA.accounts)||[], s=$('xCat'), inp=$('xCatIn');
+  if(!a.length){ s.classList.add('hide'); s.innerHTML=''; inp.classList.remove('hide'); inp.value=sel||''; return; }
+  inp.classList.add('hide'); s.classList.remove('hide');
+  s.innerHTML='<option value="">Select category</option>'+a.map(function(c){return '<option value="'+esc(c)+'">'+esc(c)+'</option>';}).join('');
+  s.value=sel||'';
+}
+
+
+function showPrev(){
+  $('xThumbs').innerHTML=XPH.map(function(p,i){
+    return '<div class="pwrap"><img class="thumb" src="'+p+'" onclick="bigImgs(XPH,'+i+')" alt="Receipt '+(i+1)+'">'+
+      '<button type="button" class="pdel" onclick="delPh('+i+')">✕</button></div>';
+  }).join('');
+  $('xCnt').textContent=XPH.length?XPH.length+' / '+MAXPH+' photos':'';
+  var full=XPH.length>=MAXPH;
+  document.querySelectorAll('.pick button').forEach(function(b){ b.disabled=full; });
+}
+
+function delPh(i){ XPH.splice(i,1); showPrev(); }
+
+/* shrink the photo to 640 px, quality 0.5 (done when the photo is picked, so Save has no wait) */
+function shrink(file,cb){
+  var img=new Image(), url=URL.createObjectURL(file);
+  img.onload=function(){
+    var m=640, s=Math.min(1,m/Math.max(img.width,img.height));
+    var c=document.createElement('canvas');
+    c.width=Math.max(1,Math.round(img.width*s)); c.height=Math.max(1,Math.round(img.height*s));
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    URL.revokeObjectURL(url);
+    cb(c.toDataURL('image/jpeg',0.5));
+  };
+  img.onerror=function(){ URL.revokeObjectURL(url); cb(null); };
+  img.src=url;
+}
+
+function pickPhoto(inp){
+  var fs=Array.prototype.slice.call(inp.files||[]); inp.value='';
+  if(!fs.length) return;
+  $('xMsg').textContent='';
+  var left=MAXPH-XPH.length;
+  if(fs.length>left){ fs=fs.slice(0,left); $('xMsg').textContent='Maximum '+MAXPH+' photos'; }
+  var i=0;
+  (function next(){
+    if(i>=fs.length) return showPrev();
+    shrink(fs[i++],function(u){
+      if(u) XPH.push(u); else $('xMsg').textContent='Could not read a photo';
+      next();
+    });
+  })();
+}
+
+function openExp(tid, pre){
+  var t=findTrip(tid);
+  if(!t){ toast('Trip not found'); return; }
+  pre=pre||{};
+  XTID=tid; XID=pre.id||genId('EXP'); XPH=(pre.local||[]).slice();
+  $('xInfo').innerHTML='<b>'+esc(t.id)+'</b> · '+esc(t.vno);
+  fillCats(pre.cat||'');
+  $('xAmt').value=pre.amt||''; $('xMsg').textContent='';
+  var lim=Number(DATA.photoAbove)||0;
+  $('xPLbl').textContent = lim>0 ? 'Receipt photos, up to 5 (required above '+money(lim)+')' : 'Receipt photos, up to 5 (optional)';
+  showPrev(); view('exp');
+}
+
+function dropExp(tid,id){
+  var t=findTrip(tid); if(!t) return;
+  t.expList=t.expList.filter(function(a){return a.id!==id;});
+  recalc();
+}
+
+function failExp(tid,item,why){
+  dropExp(tid,item.id); persist(); render(DATA);
+  toast('Not saved: '+why);
+  if(CURT===tid && !$('detailView').classList.contains('hide')){
+    openExp(tid,{id:item.id,cat:item.cat,amt:item.amt,local:LOC[item.id]||[]});
+    $('xMsg').textContent='Not saved: '+why;
+  }
+}
+
+function settle(){ persist(); render(DATA); }
+
+/* step 2: upload all photos of the expense in ONE call, in the background */
+function sendReceipt(tid,item){
+  var list=LOC[item.id]||[], n=rlinks(item).length;
+  if(n>=list.length){ item.upl=false; delete RFAIL[item.id]; PEND--; settle(); return; }
+  item.upl=true; render(DATA);
+  RUN
+    .withSuccessHandler(function(r){
+      if(r.expired){ item.upl=false; PEND=0; clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return; }
+      if(r.links && r.links.length) item.photo=r.links.join('\n');
+      item.upl=false; PEND--;
+      if(!r.ok){ RFAIL[item.id]=true; toast('Receipt not uploaded: '+r.msg); persist(); render(DATA); return; }
+      delete RFAIL[item.id]; settle();
+    })
+    .withFailureHandler(function(e){
+      item.upl=false; RFAIL[item.id]=true; PEND--; toast('Receipt not uploaded'); persist(); render(DATA);
+    })
+    .addReceipts(ls(KEY),{id:item.id,n:n,photos:list.slice(n)});
+}
+
+function retryReceipt(tid,id){
+  var t=findTrip(tid), e=t&&t.expList.filter(function(x){return x.id===id;})[0];
+  if(!e||!LOC[id]) return;
+  delete RFAIL[id]; PEND++; sendReceipt(tid,e);
+}
+
+function saveExp(){
+  var cat=((((DATA.accounts||[]).length)?$('xCat').value:$('xCatIn').value)||'').trim(), amt=r2(Number($('xAmt').value)), msg=$('xMsg');
+  msg.textContent='';
+  if(!cat){ msg.textContent='Select a category'; return; }
+  if(!(amt>0)){ msg.textContent='Enter an amount above 0'; return; }
+  var lim=Number(DATA.photoAbove)||0;
+  if(lim>0 && amt>lim && !XPH.length){ msg.textContent='Receipt photo is required above '+money(lim); return; }
+  var t=findTrip(XTID);
+  if(!t){ msg.textContent='Trip not found'; return; }
+
+  var tid=XTID, id=XID||genId('EXP'), photos=XPH; XID=''; XPH=[];
+  if(photos.length) LOC[id]=photos;
+  var item={id:id,date:Date.now(),amt:amt,cat:cat,photo:'',pending:true};
+  t.expList.unshift(item); recalc(); persist(); PEND++;
+  CURT=tid; view('detail'); render(DATA); toast('Expense saved');
+
+  // step 1: save the expense row (small, fast, no photo in this call)
+  RUN
+    .withSuccessHandler(function(r){
+      if(r.expired){
+        PEND=0; dropExp(tid,item.id); clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return;
+      }
+      if(!r.ok){ PEND--; failExp(tid,item,r.msg); return; }
+      if(r.id && r.id!==item.id){
+        if(LOC[item.id]){ LOC[r.id]=LOC[item.id]; delete LOC[item.id]; }
+        item.id=r.id;
+      }
+      item.pending=false;
+      if(photos.length) sendReceipt(tid,item);
+      else { PEND--; settle(); }
+    })
+    .withFailureHandler(function(e){ PEND--; failExp(tid,item,e.message); })
+    .addExpense(ls(KEY),{id:id,tid:tid,cat:cat,amt:amt,hasPhoto:photos.length>0});
+}
+
+/* ---------- add stop ---------- */
+function cState(){
+  $('cSel').textContent = CSEL ? 'Selected: '+CSEL : 'No customer selected';
+  $('cSel').className = CSEL ? 'sub okc' : 'sub';
+}
+
+/* dropdown list: shows every customer, or only the ones matching what is typed */
+function drawDD(){
+  var all=(DATA&&DATA.customers)||[], v=$('cQ').value, q=v.trim().toLowerCase();
+  var showAll=!!CSEL && v===CSEL, h='', n=0;
+  if(!all.length){ $('cList').innerHTML='<div class="no">Customer list is empty</div>'; return; }
+  for(var i=0;i<all.length;i++){
+    if(!showAll && q && all[i].toLowerCase().indexOf(q)<0) continue;
+    h+='<div onclick="pickCust('+i+')">'+esc(all[i])+'</div>';
+    if(++n>=200) break;
+  }
+  $('cList').innerHTML = h || '<div class="no">No match</div>';
+}
+function openDD(){ drawDD(); $('cList').classList.remove('hide'); }
+function filterDD(){
+  var v=$('cQ').value.trim().toLowerCase(), all=(DATA&&DATA.customers)||[];
+  var ex=all.filter(function(c){return c.toLowerCase()===v;})[0];
+  CSEL=ex||'';                      // only an exact customer name counts as selected
+  cState(); drawDD(); $('cList').classList.remove('hide');
+}
+function pickCust(i){
+  CSEL=DATA.customers[i]; $('cQ').value=CSEL;
+  $('cList').classList.add('hide'); cState(); $('cQ').blur();
+}
+document.addEventListener('click',function(e){
+  if(!e.target.closest('.dd')) $('cList').classList.add('hide');
+});
+
+function drawRet(){ $('pRetBox').checked = (PRET==='Yes'); }
+
+function pickRet(v){ PRET=v; drawRet(); }
+
+function openStop(tid, pre){
+  var t=findTrip(tid);
+  if(!t){ toast('Trip not found'); return; }
+  if(!t.running){ toast('Trip is not running'); return; }
+  pre=pre||{};
+  PTID=tid; PID=pre.id||genId('STP'); CSEL=pre.cust||''; PRET=pre.ret||'No';
+  BUSY=false;
+  $('pInfo').innerHTML='<b>'+esc(t.id)+'</b> · '+esc(t.vno);
+  $('cQ').value=CSEL; $('cList').classList.add('hide'); cState();
+  $('pNote').value=pre.notes||''; $('pMsg').textContent='';
+  $('pGo').disabled=false; $('pGo').textContent='Save stop';
+  drawRet(); view('stop'); startWatch('pLoc');
+}
+
+function dropStop(tid,id){
+  var t=findTrip(tid); if(!t) return;
+  t.stops=(t.stops||[]).filter(function(s){return s.id!==id;});
+}
+
+function failStop(tid,item,why){
+  dropStop(tid,item.id); persist(); render(DATA);
+  toast('Not saved: '+why);
+  if(CURT===tid && !$('detailView').classList.contains('hide')){
+    openStop(tid,{id:item.id,cust:item.cust,notes:item.notes,ret:item.ret}); $('pMsg').textContent='Not saved: '+why;
+  }
+}
+
+function saveStop(){
+  if(BUSY) return;
+  var msg=$('pMsg'), btn=$('pGo'), ret=PRET;
+  msg.textContent='';
+  if(!CSEL){ msg.textContent='Select a customer'; return; }
+  var t=findTrip(PTID);
+  if(!t||!t.running){ msg.textContent='Trip is not running'; return; }
+
+  BUSY=true; btn.disabled=true;
+  function lock(x){ btn.textContent=x; }
+  function reset(x){ BUSY=false; btn.disabled=false; btn.textContent = x===L_AGAIN ? 'Try again' : 'Save stop'; }
+
+  needLoc(lock,reset,function(p){
+    var tid=PTID, id=PID||genId('STP'); PID='';
+    var notes=$('pNote').value.trim().slice(0,300), cust=CSEL;
+    if(!t.stops) t.stops=[];
+    var seq=t.stops.reduce(function(m,s){return Math.max(m,s.seq||0);},0)+1;
+    var item={id:id,cust:cust,loc:locText(p),ts:Date.now(),notes:notes,seq:seq,ret:ret,pending:true};
+    t.stops.push(item); persist(); PEND++;
+    reset(); CURT=tid; view('detail'); render(DATA); toast('Stop saved');
+
+    RUN
+      .withSuccessHandler(function(r){
+        PEND--;
+        if(r.expired){
+          PEND=0; dropStop(tid,id); clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return;
+        }
+        if(!r.ok){ failStop(tid,item,r.msg); return; }
+        if(r.id && r.id!==item.id) item.id=r.id;
+        if(r.seq) item.seq=r.seq;
+        item.pending=false;
+        persist(); render(DATA);
+        fetchPlace('P',item.id);
+      })
+      .withFailureHandler(function(e){ PEND--; failStop(tid,item,e.message); })
+      .addStop(ls(KEY),{id:id,tid:tid,cust:cust,loc:item.loc,notes:notes,ret:ret});
+  });
+}
+
+/* ---------- live location (starts when the screen opens) ---------- */
+function findLoc(timeout, done){
+  if(!navigator.geolocation){ done(null,{code:0,message:'no geolocation support'}); return; }
+  navigator.geolocation.getCurrentPosition(
+    function(p){ done({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,t:Date.now()},null); },
+    function(e){ done(null,e); },
+    {enableHighAccuracy:true,timeout:timeout,maximumAge:0});
+}
+function locText(p){ return p.lat.toFixed(6)+','+p.lng.toFixed(6); }
+
+function mdist(a,b){
+  var k=111320, dx=(a.lng-b.lng)*k*Math.cos(a.lat*Math.PI/180), dy=(a.lat-b.lat)*k;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+function stopWatch(){
+  if(WID!==null && navigator.geolocation){ try{ navigator.geolocation.clearWatch(WID); }catch(e){} }
+  WID=null;
+}
+
+function startWatch(el){
+  stopWatch();
+  PBOX=el; POS=null; LASTMAP=null; LALERT=false; MAPON=false;
+  var box=$(el), mp=$(el.charAt(0)+'Map');
+  box.className='sub'; box.textContent='Looking for location...';
+  if(mp) mp.innerHTML='';
+  if(!navigator.geolocation){ box.className='sub bad'; box.textContent='No location support on this phone'; return; }
+  // quick first fix (may be a recent one), then GPS keeps refining
+  navigator.geolocation.getCurrentPosition(function(pp){ gotFix(pp,true); },function(){},
+    {enableHighAccuracy:false,timeout:8000,maximumAge:30000});
+  WID=navigator.geolocation.watchPosition(function(pp){ gotFix(pp,false); },locErr,
+    {enableHighAccuracy:true,timeout:20000,maximumAge:0});
+}
+
+function gotFix(pp,q){
+  if(q && POS) return;   // never replace a GPS fix with the quick one
+  POS={lat:pp.coords.latitude,lng:pp.coords.longitude,acc:pp.coords.accuracy,t:Date.now(),q:q};
+  var box=$(PBOX); if(!box) return;
+  box.className='sub okc';
+  box.textContent='Location found (±'+Math.round(POS.acc)+' m)'+(q?' · refining...':'');
+  drawMap();
+}
+
+function locErr(e){
+  if(POS) return;   // keep the fix we already have
+  var box=$(PBOX); if(!box) return;
+  box.className='sub bad';
+  box.textContent = e.code===1
+    ? 'Location is blocked. Tap Retry location.'
+    : 'Location not found: '+e.message+' (code '+e.code+'). Tap Retry location.';
+  if((e.code===1 || e.code===2) && !LALERT){ LALERT=true; showLocAlert(); }
+}
+
+function drawMap(){
+  var mp=$(PBOX.charAt(0)+'Map');
+  if(!mp||!POS) return;
+  if(!MAPON){   // the map is heavy on mobile data: load it only when the driver asks
+    if(!mp.firstChild) mp.innerHTML='<button class="ghost" onclick="showMap()">🗺 Show map</button>';
+    return;
+  }
+  if(LASTMAP && mdist(LASTMAP,POS)<40) return;   // reload the map only when the position really moved
+  LASTMAP={lat:POS.lat,lng:POS.lng};
+  mp.innerHTML='<div class="mapcard"><label style="margin-top:0">Your location now</label><iframe class="map" loading="lazy" src="https://maps.google.com/maps?q='+encodeURIComponent(locText(POS))+'&z=16&output=embed"></iframe></div>';
+}
+function showMap(){ MAPON=true; LASTMAP=null; drawMap(); }
+
+/* Retry location = refresh the app, then reopen the same screen (it asks for location on open) */
+function testLoc(el){
+  var m = el==='sLoc' ? {v:'start'} : el==='eLoc' ? {v:'end',tid:ETID} : el==='pLoc' ? {v:'stop',tid:PTID} : null;
+  if(m) ls(RK,JSON.stringify(m));
+  try{ window.top.location.reload(); }catch(e){ location.reload(); }
+}
+
+function resumeAfterReload(){
+  var r=ls(RK); if(!r) return;
+  ls(RK,null);
+  try{ r=JSON.parse(r); }catch(e){ return; }
+  if(!DATA) return;
+  if(r.v==='start' && !DATA.running) startTrip();
+  else if(r.v==='end' && r.tid) endTrip(r.tid);
+  else if(r.v==='stop' && r.tid) openStop(r.tid);
+}
+
+/* ---------- place names: asked after the save, so saving stays fast ---------- */
+var TRIED={};   // lookups already asked in this session
+function fetchPlace(kind,id){
+  var k=kind+id; if(TRIED[k]) return; TRIED[k]=true;
+  RUN
+    .withSuccessHandler(function(r){
+      if(!r || !r.ok || !r.name || !DATA) return;
+      if(kind==='P'){
+        DATA.trips.forEach(function(t){ (t.stops||[]).forEach(function(s){ if(s.id===id) s.name=r.name; }); });
+      } else {
+        var t=findTrip(id);
+        if(t){ if(kind==='S') t.sname=r.name; else t.ename=r.name; }
+      }
+      persist(); render(DATA);
+    })
+    .withFailureHandler(function(){ delete TRIED[k]; })
+    .setPlace(ls(KEY),{kind:kind,id:id});
+}
+
+/* if the app was closed before a name arrived, ask again on the next open (running trip and last finished trip, 3 at most) */
+function fillMissing(){
+  if(!DATA || PEND>0) return;
+  var jobs=[], trips=[];
+  if(DATA.running) trips.push(findTrip(DATA.running.id));
+  trips.push(DATA.trips.filter(function(t){return !t.running;})[0]);
+  trips.forEach(function(t){
+    if(!t) return;
+    if(!t.sname && t.sloc) jobs.push(['S',t.id]);
+    if(!t.running && !t.ename && t.eloc) jobs.push(['E',t.id]);
+    (t.stops||[]).forEach(function(s){ if(!s.name && !s.pending && s.loc) jobs.push(['P',s.id]); });
+  });
+  jobs.filter(function(j){return !TRIED[j[0]+j[1]];}).slice(0,3).forEach(function(j){ fetchPlace(j[0],j[1]); });
+}
+
+/* the screen's live GPS fix is ready: save right away; otherwise read once */
+function needLoc(lock, reset, ok){
+  if(POS && !POS.q && (WID!==null || Date.now()-POS.t<120000)){ ok(POS); return; }
+  lock('Getting location...');
+  findLoc(12000,function(p,e){
+    if(p){ POS=p; ok(p); }
+    else {
+      reset(L_AGAIN);
+      showLocAlert();
+    }
+  });
+}
+
+/* ---------- start trip ---------- */
+function getVeh(id){ return DATA.vehicles.filter(function(x){return x.id===id;})[0]; }
+
+function startTrip(){
+  BUSY=false;
+  var lv=DATA.lastVeh;
+  SEL = DATA.vehicles.some(function(v){return v.id===lv&&!v.busy;}) ? lv : '';
+  drawVeh(); vehChange();
+  $('sPur').value=''; $('sMsg').textContent='';
+  $('sGo').disabled=false; $('sGo').textContent='Start trip';
+  view('start'); startWatch('sLoc');
+}
+
+function drawVeh(){
+  $('sVeh').innerHTML = DATA.vehicles.map(function(v,i){
+    return '<button type="button" class="'+(v.id===SEL?'on':'')+'"'+(v.busy?' disabled':'')+' onclick="pickVeh('+i+')">'+
+      '<b>'+esc(v.id)+'</b><br><small>'+esc(v.type)+(v.busy?' · In use':'')+'</small></button>';
+  }).join('') || '<div class="empty-note">No vehicles</div>';
+}
+
+function pickVeh(i){ SEL=DATA.vehicles[i].id; drawVeh(); vehChange(); }
+
+function vehChange(){
+  var v=getVeh(SEL);
+  $('sKm').value = v ? v.minKm : '';
+  $('sHint').textContent = v ? 'Last End KM: '+v.minKm+' km (minimum)' : '';
+}
+
+function submitStart(){
+  if(BUSY) return;
+  var veh=SEL, kmS=$('sKm').value, msg=$('sMsg'), btn=$('sGo');
+  msg.textContent='';
+  if(!veh){ msg.textContent='Select a vehicle'; return; }
+  var km=Number(kmS), v=getVeh(veh);
+  if(kmS===''||isNaN(km)||km<0){ msg.textContent='Enter a valid Start KM'; return; }
+  if(v && km<v.minKm){ msg.textContent='Start KM must be at least '+v.minKm; return; }
+
+  BUSY=true; btn.disabled=true;
+  function lock(t){ btn.textContent=t; }
+  function reset(t){ BUSY=false; btn.disabled=false; btn.textContent = t===L_AGAIN ? 'Try again' : 'Start trip'; }
+
+  function save(p){
+    lock('Saving...');
+    RUN
+      .withSuccessHandler(function(r){
+        if(r.expired){ reset(); clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return; }
+        if(!r.ok){ reset(); msg.textContent=r.msg; return; }
+        ls(DK,JSON.stringify(r.data)); render(r.data); showHome();
+        BUSY=false; toast('Trip started');
+        if(r.data.running) fetchPlace('S',r.data.running.id);
+      })
+      .withFailureHandler(function(e){ reset(); msg.textContent='Could not save: '+e.message; })
+      .startTrip(ls(KEY),{veh:veh,sk:km,loc:locText(p),route:$('sPur').value});
+  }
+  needLoc(lock,reset,save);
+}
+
+/* ---------- end trip ---------- */
+function endTrip(tid){
+  var t=DATA.trips.filter(function(x){return x.id===tid&&x.running;})[0];
+  if(!t){ toast('No running trip found'); return; }
+  ETID=t.id; ESK=Number(t.sk); BUSY=false;
+  $('eInfo').textContent=t.id+' · '+t.vno+' · Start '+t.sk+' km';
+  $('eKm').value=''; $('eDist').textContent='0 km'; $('eMsg').textContent=''; $('eWarn').classList.add('hide');
+  $('eStats').innerHTML=
+    '<div class="stat"><span>Advance</span><b>'+rupee(t.adv)+'</b></div>'+
+    '<div class="stat"><span>Expenses</span><b>'+rupee(t.exp)+'</b></div>'+
+    '<div class="stat"><span>Balance</span><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>';
+  $('eGo').disabled=false; $('eGo').textContent='End trip';
+  view('end'); startWatch('eLoc');
+}
+
+function distChange(){
+  var s=$('eKm').value, km=Number(s), d=km-ESK;
+  var ok=!(s===''||isNaN(km)||d<=0);
+  $('eDist').textContent = ok ? r2(d)+' km' : '0 km';
+  $('eWarn').textContent = 'Long trip ('+r2(d)+' km). Please check the End KM.';
+  $('eWarn').classList.toggle('hide', !(ok && d>=WARN_KM));
+}
+
+function submitEnd(){
+  if(BUSY) return;
+  var kmS=$('eKm').value, km=Number(kmS), msg=$('eMsg'), btn=$('eGo');
+  msg.textContent='';
+  if(kmS===''||isNaN(km)||km<0){ msg.textContent='Enter End KM'; return; }
+  if(km<=ESK){ msg.textContent='End KM must be higher than Start KM ('+ESK+')'; return; }
+  var dist=r2(km-ESK);
+  if(dist>=WARN_KM && !confirm('Distance is '+dist+' km. Is this correct?')) return;
+
+  BUSY=true; btn.disabled=true;
+  function lock(t){ btn.textContent=t; }
+  function reset(t){ BUSY=false; btn.disabled=false; btn.textContent = t===L_AGAIN ? 'Try again' : 'End trip'; }
+
+  function save(p){
+    lock('Saving...');
+    var eloc=locText(p);
+    RUN
+      .withSuccessHandler(function(r){
+        if(r.expired){ reset(); clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return; }
+        if(!r.ok){ reset(); msg.textContent=r.msg; return; }
+        var t=findTrip(ETID);
+        if(t){
+          t.running=false; t.ek=km; t.eloc=eloc;
+          t.tk=r.tk||dist; t.end=r.end||Date.now();
+          var v=getVeh(t.veh);
+          if(v){ v.busy=false; if(km>v.minKm) v.minKm=km; }
+        }
+        DATA.running=DATA.trips.filter(function(x){return x.running;})[0]||null;
+        persist(); render(DATA); showHome();
+        BUSY=false; toast('Trip ended');
+        fetchPlace('E',ETID);
+      })
+      .withFailureHandler(function(e){ reset(); msg.textContent='Could not save: '+e.message; })
+      .endTrip(ls(KEY),{tid:ETID,ek:km,loc:eloc});
+  }
+  needLoc(lock,reset,save);
+}
+
+/* ---------- session ---------- */
+function apply(d){ if(PEND>0) return; ls(DK,JSON.stringify(d)); render(d); }
+
+/* ---------- number pad for amounts ---------- */
+function buildPad(box,inp){
+  $(box).innerHTML=['1','2','3','4','5','6','7','8','9','.','0','⌫'].map(function(k){
+    return '<button type="button" onclick="padKey(\''+inp+'\',\''+k+'\')">'+k+'</button>';
+  }).join('');
+}
+function padKey(id,k){
+  var el=$(id), v=el.value;
+  if(k==='⌫') v=v.slice(0,-1);
+  else if(k==='.'){ if(v.indexOf('.')<0) v=(v||'0')+'.'; }
+  else {
+    if(v.indexOf('.')>-1 && v.split('.')[1].length>=2) return;   // 2 decimals
+    if(v.length>=9) return;
+    v=(v==='0')?k:v+k;
+  }
+  el.value=v;
+}
+
+/* ---------- location help popup ---------- */
+function showLocAlert(){
+  $('locHint').textContent='Location is required to continue.';
+  if(navigator.permissions && navigator.permissions.query){
+    navigator.permissions.query({name:'geolocation'}).then(function(p){
+      $('locHint').textContent =
+        p.state==='denied' ? 'Chrome has blocked location. Follow step 2, then tap Allow location.' :
+        p.state==='prompt' ? 'Tap Allow location, then choose Allow in the Chrome box.' :
+                             'Turn Location ON (step 1), then tap Allow location.';
+    }).catch(function(){});
+  }
+  $('locAlert').classList.remove('hide');
+}
+function closeLocAlert(){ $('locAlert').classList.add('hide'); }
+function retryLoc(){ closeLocAlert(); if(PBOX) testLoc(PBOX); }
+function openLocSettings(){
+  if(/android/i.test(navigator.userAgent)) window.location.href='intent:#Intent;action=android.settings.LOCATION_SOURCE_SETTINGS;end';
+  else toast('Swipe down from the top of your screen to turn on Location.');
+}
+
+/* ---------- offline bar ---------- */
+function netUpdate(){ $('offline').classList.toggle('hide', navigator.onLine!==false); }
+window.addEventListener('online',netUpdate);
+window.addEventListener('offline',netUpdate);
+
+function init(){
+  buildPad('aPad','aAmt'); buildPad('xPad','xAmt'); netUpdate();
+  try{ history.replaceState({a:0},''); }catch(e){}
+  var t=ls(KEY), c=getCached();
+  if(!t){ show('loginBox'); return; }
+  if(c){ render(c); resumeAfterReload(); } else show('loading');      // instant open from saved copy
+  RUN
+    .withSuccessHandler(function(r){
+      if(r.ok){ apply(r.data); resumeAfterReload(); fillMissing(); } else { clearAll(); show('loginBox'); }
+    })
+    .withFailureHandler(function(){ if(!c) show('loginBox'); })
+    .sync(t);
+}
+
+function doLogin(){
+  var btn=$('loginBtn'); btn.disabled=true; btn.textContent='Logging in...'; $('msg').textContent='';
+  RUN
+    .withSuccessHandler(function(r){
+      btn.disabled=false; btn.textContent='Login';
+      if(r.ok){ ls(KEY,r.token); ls(DK,JSON.stringify(r.data)); render(r.data); showHome(); fillMissing(); }
+      else $('msg').textContent=r.msg;
+    })
+    .withFailureHandler(function(e){
+      btn.disabled=false; btn.textContent='Login'; $('msg').textContent='Error: '+e.message;
+    })
+    .login($('user').value,$('pin').value);
+}
+
+function doLogout(){
+  clearAll(); DATA=null; PEND=0; $('pin').value=''; $('avMenu').classList.add('hide');
+  showHome(); show('loginBox');
+}
+
+init();
+</script>
+</body>
+</html>
