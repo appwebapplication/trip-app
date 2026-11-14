@@ -5,6 +5,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0F172A">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="color-scheme" content="light">
 <title>TripLedger</title>
 <style>
@@ -492,7 +495,7 @@ function stepBig(d){ BI=(BI+d+BL.length)%BL.length; drawBig(); }
 function closeBig(){ $('big').classList.add('hide'); }
 
 function recalc(){
-  var A=0,E=0;
+  var H=DATA.hidden||{adv:0,exp:0}, A=H.adv,E=H.exp;
   DATA.trips.forEach(function(t){
     t.adv=r2(t.advList.reduce(function(s,a){return s+a.amt;},0));
     t.exp=r2(t.expList.reduce(function(s,a){return s+a.amt;},0));
@@ -545,6 +548,7 @@ function render(d){
         '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
       '</div></div>';
   }).join('') : '<div class="empty-note">No completed trips yet.</div>';
+  if(d.hidden&&d.hidden.n>0) $('list').innerHTML+='<button class="mini" id="olderBtn" style="width:100%;margin:6px 0 12px" onclick="loadOlder()">Show '+d.hidden.n+' older trip'+(d.hidden.n===1?'':'s')+'</button>';
   show('appBox');
   if(CURT && !$('detailView').classList.contains('hide')) drawDetail(CURT);
 }
@@ -1255,6 +1259,13 @@ function submitEnd(){
 }
 
 /* ---------- session ---------- */
+function loadOlder(){
+  var b=$('olderBtn'); if(b){ b.disabled=true; b.textContent='Loading...'; }
+  RUN
+    .withSuccessHandler(function(r){ if(r.ok) apply(r.data); else if(b){ b.disabled=false; b.textContent='Try again'; } })
+    .withFailureHandler(function(){ if(b){ b.disabled=false; b.textContent='Try again'; } })
+    .sync(ls(KEY),true);
+}
 function apply(d){ if(PEND>0) return; ls(DK,JSON.stringify(d)); render(d); }
 
 /* ---------- number pad for amounts ---------- */
@@ -1333,6 +1344,7 @@ function doLogout(){
   showHome(); show('loginBox');
 }
 
+if('serviceWorker' in navigator){ window.addEventListener('load',function(){ try{ navigator.serviceWorker.register('sw.js'); }catch(e){} }); }
 init();
 </script>
 </body>
