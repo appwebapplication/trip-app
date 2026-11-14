@@ -300,8 +300,8 @@
         <button class="back" onclick="showHome()">←</button>
         <h1>Profile</h1>
       </div>
-      <div class="card" id="profBody"></div>
-      <button class="ghost" onclick="doLogout()">Sign out</button>
+      <div id="profBody"></div>
+      <button class="ghost" style="margin-top:6px" onclick="doLogout()">Sign out</button>
     </div>
 
     <div id="advView" class="hide">
@@ -563,14 +563,80 @@ function navTo(x){
   else if(DATA.running) openTripId(DATA.running.id);
   else toast('No trip running');
 }
+/* ---------- profile with trip-start filter ---------- */
+var PF={mode:'month',from:'',to:''}, PLOAD=false;
+function pRange(){
+  var n=new Date(), y=n.getFullYear(), m=n.getMonth(), a=null, b=null;
+  if(PF.mode==='month'){ a=new Date(y,m,1).getTime(); b=new Date(y,m+1,1).getTime(); }
+  else if(PF.mode==='last'){ a=new Date(y,m-1,1).getTime(); b=new Date(y,m,1).getTime(); }
+  else if(PF.mode==='custom'){
+    if(PF.from){ var f=PF.from.split('-'); a=new Date(+f[0],+f[1]-1,+f[2]).getTime(); }
+    if(PF.to){ var t=PF.to.split('-'); b=new Date(+t[0],+t[1]-1,+t[2]+1).getTime(); }
+  }
+  return {a:a,b:b};
+}
+function pLabel(r){
+  function f(ms){ return new Date(ms).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+  if(r.a===null&&r.b===null) return 'All trips';
+  return 'Trips started '+(r.a!==null?f(r.a):'the beginning')+' – '+(r.b!==null?f(r.b-1):'today');
+}
+function setPF(m){ PF.mode=m; drawProfile(); }
+function setPFdates(){ PF.from=$('pfFrom').value; PF.to=$('pfTo').value; drawProfile(); }
+
 function renderProfile(){
-  var t=DATA.totals;
-  function row(a,b){ return '<div class="row2"><span>'+a+'</span><b>'+b+'</b></div>'; }
+  PF={mode:'month',from:'',to:''};
+  drawProfile(); view('profile');
+}
+function drawProfile(){
+  var r=pRange(), d=DATA, hid=d.hidden&&d.hidden.n>0;
+  if(hid){   // older trips are not on the phone yet: load them once when the period needs them
+    var oldest=Infinity; d.trips.forEach(function(t){ var s=Number(t.start)||0; if(s&&s<oldest) oldest=s; });
+    if((r.a===null||oldest>r.a) && !PLOAD){
+      PLOAD=true;
+      RUN
+        .withSuccessHandler(function(x){ PLOAD=false; if(x.ok){ apply(x.data); } drawProfile(); })
+        .withFailureHandler(function(){ PLOAD=false; drawProfile(); })
+        .sync(ls(KEY),true);
+      hid=true;
+    }
+  }
+  var list=d.trips.filter(function(t){
+    var s=Number(t.start)||0;
+    return (r.a===null||s>=r.a)&&(r.b===null||s<r.b);
+  });
+  var A=0,E=0,K=0;
+  list.forEach(function(t){ A+=t.adv; E+=t.exp; K+=(Number(t.tk)||0); });
+  A=r2(A); E=r2(E); var B=r2(A-E);
+  function chip(m,l){ return '<button class="'+(PF.mode===m?'on':'')+'" style="font-size:13px" onclick="setPF(\''+m+'\')">'+l+'</button>'; }
   $('profBody').innerHTML =
-    row('Name',esc(DATA.driver.name||DATA.driver.first))+row('Driver ID',esc(DATA.driver.id))+row('Trips',DATA.tripCount)+
-    row('Advance',rupee(t.adv))+row('Expenses',rupee(t.exp))+
-    row('Balance','<span class="'+cls(t.bal)+'">'+rupee(t.bal)+'</span>');
-  view('profile');
+    '<div class="card" style="display:flex;align-items:center;gap:12px;padding-top:12px">'+
+      '<div class="avatar" style="width:48px;height:48px;font-size:22px;cursor:default">'+esc(d.driver.letter)+'</div>'+
+      '<div><h1 style="font-size:18px">'+esc(d.driver.name||d.driver.first)+'</h1><div class="sub">'+esc(d.driver.id)+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' in total</div></div>'+
+    '</div>'+
+    '<div class="card" style="margin-top:10px;padding-top:12px">'+
+      '<div class="chips" style="grid-template-columns:repeat(4,1fr)">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('custom','Custom')+'</div>'+
+      (PF.mode==='custom'?'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'+
+        '<div><label for="pfFrom">From</label><input type="date" id="pfFrom" value="'+esc(PF.from)+'" onchange="setPFdates()"></div>'+
+        '<div><label for="pfTo">To</label><input type="date" id="pfTo" value="'+esc(PF.to)+'" onchange="setPFdates()"></div></div>':'')+
+      '<div class="sub" style="margin-top:8px">'+pLabel(r)+(PLOAD?' · loading older trips...':'')+'</div>'+
+    '</div>'+
+    '<div class="stats" style="margin-top:10px">'+
+      '<div class="stat"><span>Advance</span><b>'+rupee(A)+'</b></div>'+
+      '<div class="stat"><span>Expense</span><b>'+rupee(E)+'</b></div>'+
+      '<div class="stat"><span>Balance</span><b class="'+cls(B)+'">'+rupee(B)+'</b></div>'+
+    '</div>'+
+    '<div class="sub" style="margin:6px 2px 10px">'+list.length+' trip'+(list.length===1?'':'s')+' · '+Math.round(K*100)/100+' km</div>'+
+    (list.length?list.map(function(t){
+      return '<div class="tcard '+(t.running?'':'done')+'" style="'+(t.running?'border-left-color:var(--wait)':'')+'" onclick="openTripId(\''+esc(jq(t.id))+'\')">'+
+        '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill '+(t.running?'wait':'done')+'">'+(t.running?'In progress':'Completed')+'</span></div>'+
+        (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
+        '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+(t.running?'':' · '+esc(t.tk)+' km')+'</div>'+
+        '<div class="tc-money">'+
+          '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
+          '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
+          '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
+        '</div></div>';
+    }).join(''):'<div class="empty-note">No trips in this period.</div>');
 }
 
 /* ---------- trip details ---------- */
