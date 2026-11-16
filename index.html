@@ -77,16 +77,12 @@
   .chips button.on { background: var(--btn); color: var(--btnt); box-shadow: none; }
 
   .hero { position: relative; overflow: hidden; color: #fff; border-radius: 14px; padding: 14px; margin-bottom: 10px; background: linear-gradient(135deg, #0F172A 0%, #1E293B 55%, #334155 100%); box-shadow: 0 8px 20px rgba(15,23,42,.2); }
-  .hero.click { cursor: pointer; }
   .hero::before { content: ''; position: absolute; right: -30px; top: -30px; width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle, rgba(245,158,11,.35), transparent 70%); }
   .hero-top { display: flex; justify-content: space-between; align-items: center; position: relative; }
   .hero-veh { font-size: 13px; font-weight: 600; opacity: .8; }
   .hero-id { font-size: 20px; font-weight: 800; letter-spacing: -.4px; margin-top: 6px; position: relative; }
   .hero-row { font-size: 14px; opacity: .85; margin-top: 2px; position: relative; }
   .hero button { position: relative; padding: 9px; font-size: 14px; margin-top: 8px; }
-  .hrow { display: flex; gap: 8px; position: relative; margin-top: 8px; }
-  .hrow button { flex: 1; margin: 0; width: auto; }
-  .hero button.endb { background: rgba(255,255,255,.16); color: #fff; }
   .route { position: relative; margin-top: 6px; }
   .rt { position: relative; display: flex; gap: 10px; padding-bottom: 12px; }
   .rt::before { content: ''; position: absolute; left: 13px; top: 28px; bottom: -2px; width: 2px; background: var(--line); }
@@ -105,6 +101,8 @@
   .hero.empty { background: var(--card); color: var(--ink); box-shadow: var(--shadow); }
   .hero.empty::before { display: none; }
   .hero.empty .hero-row { color: var(--mute); opacity: 1; }
+  .hero-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .hero-line button { margin: 0; flex: none; }
   .hero button.mini { width: auto; padding: 7px 16px; font-size: 14px; }
 
   .pill { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; }
@@ -122,8 +120,6 @@
   .okc { color: var(--go); } .bad { color: var(--stop); }
 
   .offline { position: fixed; top: 0; left: 0; right: 0; z-index: 70; background: var(--stop); color: #fff; text-align: center; padding: 6px; font-size: 14px; font-weight: 600; }
-  .menu { position: absolute; left: 0; top: 42px; z-index: 20; background: var(--card); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(15,23,42,.2); min-width: 150px; }
-  .menu button { margin: 0; }
 
   .seg { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); background: var(--line); border-radius: 12px; padding: 4px; margin: 12px 0 8px; }
   .seg-thumb { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc((100% - 8px) / 3); background: var(--card); border-radius: 9px; box-shadow: 0 1px 3px rgba(15,23,42,.18), 0 1px 2px rgba(15,23,42,.1); transition: transform .22s ease; }
@@ -143,8 +139,6 @@
   .amtbox input.amt { border: 0; background: transparent; font-size: 34px; font-weight: 800; padding: 4px 0; letter-spacing: -.5px; }
   .pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
   .pad button { margin: 0; padding: 14px 0; font-size: 22px; font-weight: 700; background: var(--inp); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--line); }
-  .row2 { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
-  .row2:last-child { border-bottom: 0; }
 
   .sec { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 8px; }
   .tcard { background: var(--card); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; box-shadow: var(--shadow); border-left: 4px solid var(--go); }
@@ -723,8 +717,8 @@ function drawDetail(id){
       '<div class="hero-top"><span class="pill '+(t.running?'wait':'done')+'">'+(t.running?'● In progress':'✓ Completed')+'</span><span class="hero-veh">'+esc(t.vno)+'</span></div>'+
       '<div class="hero-id">'+esc(t.id)+'</div>'+
       (t.route?'<div class="hero-row" style="font-weight:600">🛣 '+esc(t.route)+'</div>':'')+
-      '<div class="hero-row">'+dt(t.start)+' · '+km+'</div>'+
-      (t.running?'<br><button class="accent mini" onclick="endTrip(\''+q+'\')">End trip</button>':'')+
+      '<div class="hero-row hero-line"><span>'+dt(t.start)+' · '+km+'</span>'+
+        (t.running?'<button class="accent mini" onclick="endTrip(\''+q+'\')">End trip</button>':'')+'</div>'+
     '</div>'+
     '<div class="stats">'+
       '<div class="stat"><span>Advances</span><b>'+rupee(t.adv)+'</b></div>'+
