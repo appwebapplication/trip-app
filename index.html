@@ -139,8 +139,8 @@
   .seg button span { opacity: .8; font-weight: 500; }
 
   .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: center; background: var(--card); box-shadow: 0 -2px 12px rgba(15,23,42,.08); }
-  .nav button { flex: 1; max-width: 140px; margin: 0; border-radius: 0; background: transparent; color: var(--mute); padding: 8px 4px; font-size: 20px; line-height: 1.2; display: flex; flex-direction: column; align-items: center; gap: 1px; }
-  .nav button span { font-size: 13px; font-weight: 600; }
+  .nav button { flex: 1; max-width: 220px; margin: 0; border-radius: 0; background: transparent; color: var(--mute); padding: 10px 4px; font-size: 26px; line-height: 1.2; display: flex; flex-direction: column; align-items: center; gap: 1px; }
+  .nav button span { font-size: 16px; font-weight: 700; }
   .nav button.on { color: var(--ink); }
   .nav button.on span { border-bottom: 2px solid var(--accent); }
   .fab { position: fixed; right: max(16px, calc(50% - 194px)); bottom: 72px; width: auto; margin: 0; padding: 12px 18px; border-radius: 26px; background: var(--accent); color: #0F172A; font-size: 15px; box-shadow: 0 6px 16px rgba(15,23,42,.3); z-index: 41; }
@@ -235,21 +235,13 @@
 
     <div id="homeView">
       <div class="top">
-        <div class="avatar" id="av" onclick="toggleMenu(event)"></div>
         <div class="grow">
           <h1 id="hello"></h1>
           <div class="sub" id="sub"></div>
         </div>
-        <div id="avMenu" class="menu hide"><button class="ghost" onclick="doLogout()">Sign out</button></div>
       </div>
       <div id="runBox"></div>
-      <div class="stats">
-        <div class="stat"><span>Advance</span><b id="tAdv"></b></div>
-        <div class="stat"><span>Expenses</span><b id="tExp"></b></div>
-        <div class="stat"><span>Balance</span><b id="tBal"></b></div>
-      </div>
-      <div class="sec"><h2>Completed trips</h2></div>
-      <div id="list"></div>
+      <div id="lastBox"></div>
     </div>
 
     <div id="startView" class="hide">
@@ -296,8 +288,8 @@
 
     <div id="detailView" class="hide">
       <div class="head">
-        <button class="back" onclick="showHome()">←</button>
-        <h1>Trip details</h1>
+        <button class="back" id="dBack" onclick="detailBack()">←</button>
+        <h1 id="dTitle">Trip details</h1>
       </div>
       <div id="tbody"></div>
     </div>
@@ -400,7 +392,6 @@
 
 <button id="fab" class="fab hide" onclick="fabAdd()"></button>
 <div id="nav" class="nav hide">
-  <button id="navHome" onclick="navTo('home')">🏠<span>Home</span></button>
   <button id="navTrip" onclick="navTo('trip')">🚚<span>Trip</span></button>
   <button id="navProf" onclick="navTo('profile')">👤<span>Profile</span></button>
 </div>
@@ -468,16 +459,18 @@ var VIEWS=['home','start','end','detail','adv','exp','stop','profile','settle'];
 function navSync(){
   var on=!$('appBox').classList.contains('hide');
   $('nav').classList.toggle('hide', !on || ['home','detail','profile'].indexOf(CUR)<0);
-  $('navHome').classList.toggle('on',CUR==='home');
-  $('navTrip').classList.toggle('on',CUR==='detail');
-  $('navProf').classList.toggle('on',CUR==='profile');
+  $('navTrip').classList.toggle('on',CUR==='home'||(CUR==='detail'&&!detOnProf()));
+  $('navProf').classList.toggle('on',CUR==='profile'||(CUR==='detail'&&detOnProf()));
   fabUpdate();
 }
+var DFROM='';   // where the open trip came from: 'p' = Profile list, 't' = Last trip line, '' = the running trip (Trip tab)
+function detOnProf(){ var t=findTrip(CURT); return CUR==='detail' && DFROM==='p' && !!t && !t.running; }
+function isMain(n){ if(n==='home') return true; if(n!=='detail') return false; var t=findTrip(CURT); return !!(t&&t.running); }
 function view(n){
   VIEWS.forEach(function(x){$(x+'View').classList.toggle('hide',x!==n);});
   if(['start','end','stop'].indexOf(n)<0) stopWatch();   // GPS runs only on these three screens
   CUR=n; navSync();
-  if(n!=='home' && history.state && history.state.a===0){ try{history.pushState({a:1},'');}catch(e){} }
+  if(!isMain(n) && history.state && history.state.a===0){ try{history.pushState({a:1},'');}catch(e){} }
   window.scrollTo(0,0);
 }
 
@@ -487,11 +480,20 @@ window.addEventListener('popstate',function(){
   else if(!$('locAlert').classList.contains('hide')){ closeLocAlert(); try{history.pushState({a:1},'');}catch(e){} }
   else if(CUR==='adv'||CUR==='exp'||CUR==='stop') backToTrip();
   else if(CUR==='settle') backToProfile();
-  else if(CUR==='start'||CUR==='end'||CUR==='detail'||CUR==='profile') showHome();
+  else if(CUR==='detail') detailBack();
+  else if(CUR==='start'||CUR==='end'||CUR==='profile') showHome();
   // on Home: Back leaves the app
 });
 
-function showHome(){ CURT=''; view('home'); }
+function showHome(){
+  DFROM='';
+  var r=DATA&&DATA.running&&findTrip(DATA.running.id);
+  if(r) openTripId(r.id,''); else { CURT=''; view('home'); }
+}
+function detailBack(){
+  var t=findTrip(CURT); if(t&&t.running) return;
+  if(DFROM==='p') backToProfile(); else showHome();
+}
 function ls(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){return null;}}
 function getCached(){try{var c=JSON.parse(ls(DK));return c&&c.trips?c:null;}catch(e){return null;}}
 // photos and upload flags are never saved on the phone, only receipt links
@@ -529,26 +531,13 @@ function recalc(){
   DATA.totals={adv:r2(A),exp:r2(E),bal:r2(A-E)};
 }
 
-/* ---------- home ---------- */
+/* ---------- Trip tab (idle) ---------- */
 function render(d){
   DATA=d;
-  $('av').textContent=d.driver.letter;
   $('hello').textContent='Hi, '+d.driver.first;
   $('sub').textContent=d.driver.id+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' so far';
-  var r=d.running;
-  if(r){
-    var rt=findTrip(r.id)||{adv:0,exp:0}, q=esc(jq(r.id));
-    $('runBox').innerHTML =
-      '<div class="hero click" onclick="openTripId(\''+q+'\')">'+
-        '<div class="hero-top"><span class="pill wait">● In progress</span><span class="hero-veh">'+esc(r.vno)+' · Tap for details ➔</span></div>'+
-        '<div class="hero-id">'+esc(r.id)+'</div>'+
-        (r.route?'<div class="hero-row" style="font-weight:600">🛣 '+esc(r.route)+'</div>':'')+
-        '<div class="hero-row">'+(rt.start?dt(rt.start)+' · ':'')+'Start '+esc(r.sk)+' km · Adv '+rupee(rt.adv)+' · Exp '+rupee(rt.exp)+'</div>'+
-        '<div class="hrow">'+
-          '<button class="accent mini" onclick="event.stopPropagation();openStop(\''+q+'\')">📍 Add stop</button>'+
-          '<button class="mini endb" onclick="event.stopPropagation();endTrip(\''+q+'\')">End trip</button>'+
-        '</div>'+
-      '</div>';
+  if(d.running){
+    $('runBox').innerHTML=''; $('lastBox').innerHTML='';
   } else {
     $('runBox').innerHTML =
       '<div class="hero empty">'+
@@ -556,39 +545,19 @@ function render(d){
         '<div class="hero-row">Tap Start trip when your journey begins.</div>'+
         '<button class="accent" onclick="startTrip()">🚚 Start trip</button>'+
       '</div>';
+    var last=d.trips.filter(function(t){return !t.running;})[0];
+    $('lastBox').innerHTML = last ? '<div class="sec"><h2>Last trip</h2></div>'+tripCard(last,'t') : '';
   }
-  $('tAdv').textContent=rupee(d.totals.adv);
-  $('tExp').textContent=rupee(d.totals.exp);
-  $('tBal').textContent=rupee(d.totals.bal);
-  $('tBal').className=cls(d.totals.bal);
-  var done=d.trips.filter(function(t){return !t.running;});
-  $('list').innerHTML=done.length ? done.map(function(t){
-    return '<div class="tcard done" onclick="openTripId(\''+esc(jq(t.id))+'\')">'+
-      '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill done">Completed</span></div>'+
-      (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
-      '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+' · '+esc(t.tk)+' km</div>'+
-      tagRow(t)+
-      '<div class="tc-money">'+
-        '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
-        '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
-        '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
-      '</div></div>';
-  }).join('') : '<div class="empty-note">No completed trips yet.</div>';
-  if(d.hidden&&d.hidden.n>0) $('list').innerHTML+='<button class="mini" id="olderBtn" style="width:100%;margin:6px 0 12px" onclick="loadOlder()">Show '+d.hidden.n+' older trip'+(d.hidden.n===1?'':'s')+'</button>';
   show('appBox');
-  if(CURT && !$('detailView').classList.contains('hide')) drawDetail(CURT);
+  if(CUR==='home' && d.running && findTrip(d.running.id)) openTripId(d.running.id,'');
+  else if(CURT && !$('detailView').classList.contains('hide')) drawDetail(CURT);
 }
-
-function toggleMenu(e){ e.stopPropagation(); $('avMenu').classList.toggle('hide'); }
-document.addEventListener('click',function(){ $('avMenu').classList.add('hide'); });
 
 function navTo(x){
   if(!DATA) return;
-  if(x==='home') showHome();
-  else if(x==='profile') renderProfile();
-  else if(DATA.running) openTripId(DATA.running.id);
-  else toast('No trip running');
+  if(x==='profile') renderProfile(); else showHome();
 }
+
 /* ---------- settlement tags ---------- */
 function availOf(t){ return r2((t.bal||0)-(t.setl||0)-(t.wait||0)); }
 function pm(p){ return p<0 ? 'owed to you '+rupee(-p) : rupee(p); }
@@ -600,6 +569,18 @@ function stag(t){
   if(wait!==0 && r2(pend-wait)===0) return '<span class="pill awt">Awaiting approval</span>';
   if(setl!==0) return '<span class="pill part">Part settled · '+pm(pend)+' pending</span>'+(wait!==0?' <span class="pill awt">'+rupee(Math.abs(wait))+' awaiting</span>':'');
   return '<span class="pill pnd">Pending '+pm(pend)+'</span>'+(wait!==0?' <span class="pill awt">'+rupee(Math.abs(wait))+' awaiting</span>':'');
+}
+function tripCard(t,from){
+  return '<div class="tcard done" onclick="openTripId(\''+esc(jq(t.id))+'\',\''+from+'\')">'+
+    '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill done">Completed</span></div>'+
+    (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
+    '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+' · '+esc(t.tk)+' km</div>'+
+    tagRow(t)+
+    '<div class="tc-money">'+
+      '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
+      '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
+      '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
+    '</div></div>';
 }
 function tagRow(t){ var g=stag(t); return g?'<div style="margin-top:5px">'+g+'</div>':''; }
 function dueInfo(){
@@ -625,6 +606,7 @@ function pRange(){
   return {a:a,b:b};
 }
 function pLabel(r){
+  if(PF.mode==='pending') return 'Completed trips with an amount pending';
   function f(ms){ return new Date(ms).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
   if(r.a===null&&r.b===null) return 'All trips';
   return 'Trips started '+(r.a!==null?f(r.a):'the beginning')+' – '+(r.b!==null?f(r.b-1):'today');
@@ -651,6 +633,8 @@ function drawProfile(){
   }
   var list=d.trips.filter(function(t){
     var s=Number(t.start)||0;
+    if(t.running) return false;   // the Profile lists completed trips only
+    if(PF.mode==='pending' && r2((t.bal||0)-(t.setl||0))===0) return false;
     return (r.a===null||s>=r.a)&&(r.b===null||s<r.b);
   });
   var A=0,E=0,K=0;
@@ -671,7 +655,7 @@ function drawProfile(){
       '</div>';
     })()+
     '<div class="card" style="margin-top:10px;padding-top:12px">'+
-      '<div class="chips" style="grid-template-columns:repeat(4,1fr)">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('custom','Custom')+'</div>'+
+      '<div class="chips">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('pending','Pending')+chip('custom','Custom')+'</div>'+
       (PF.mode==='custom'?'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'+
         '<div><label for="pfFrom">From</label><input type="date" id="pfFrom" value="'+esc(PF.from)+'" onchange="setPFdates()"></div>'+
         '<div><label for="pfTo">To</label><input type="date" id="pfTo" value="'+esc(PF.to)+'" onchange="setPFdates()"></div></div>':'')+
@@ -683,22 +667,11 @@ function drawProfile(){
       '<div class="stat"><span>Trip balance</span><b class="'+cls(B)+'">'+rupee(B)+'</b></div>'+
     '</div>'+
     '<div class="sub" style="margin:6px 2px 10px">'+list.length+' trip'+(list.length===1?'':'s')+' · '+Math.round(K*100)/100+' km</div>'+
-    (list.length?list.map(function(t){
-      return '<div class="tcard '+(t.running?'':'done')+'" style="'+(t.running?'border-left-color:var(--wait)':'')+'" onclick="openTripId(\''+esc(jq(t.id))+'\')">'+
-        '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill '+(t.running?'wait':'done')+'">'+(t.running?'In progress':'Completed')+'</span></div>'+
-        (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
-        '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+(t.running?'':' · '+esc(t.tk)+' km')+'</div>'+
-        tagRow(t)+
-        '<div class="tc-money">'+
-          '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
-          '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
-          '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
-        '</div></div>';
-    }).join(''):'<div class="empty-note">No trips in this period.</div>');
+    (list.length?list.map(function(t){ return tripCard(t,'p'); }).join(''):'<div class="empty-note">No trips in this period.</div>');
 }
 
 /* ---------- trip details ---------- */
-function openTripId(id){ CURT=id; TAB='stp'; drawDetail(id); view('detail'); }
+function openTripId(id,from){ DFROM=from||''; if(CURT!==id) TAB='stp'; CURT=id; drawDetail(id); view('detail'); }
 
 function thumb(link,sz){ var m=/\/d\/([^\/?]+)/.exec(link); return m?'https://drive.google.com/thumbnail?id='+m[1]+'&sz=w'+sz:''; }
 
@@ -797,6 +770,7 @@ function listHtml(t){
 function drawDetail(id){
   var t=findTrip(id);
   if(!t){ showHome(); return; }
+  $('dBack').classList.toggle('hide',!!t.running); $('dTitle').textContent=t.running?'Current trip':'Trip details';
   var st=t.stops||[], q=esc(jq(t.id));
   var km=t.running?'Start '+esc(t.sk)+' km':esc(t.sk)+' → '+esc(t.ek)+' km ('+esc(t.tk)+' km)';
   var tabs=[['stp','Route',st.length],['adv','Advances',t.advList.length],['exp','Expenses',t.expList.length]];
@@ -1451,13 +1425,6 @@ function saveSettle(){
 }
 
 /* ---------- session ---------- */
-function loadOlder(){
-  var b=$('olderBtn'); if(b){ b.disabled=true; b.textContent='Loading...'; }
-  RUN
-    .withSuccessHandler(function(r){ if(r.ok) apply(r.data); else if(b){ b.disabled=false; b.textContent='Try again'; } })
-    .withFailureHandler(function(){ if(b){ b.disabled=false; b.textContent='Try again'; } })
-    .sync(ls(KEY),true);
-}
 function apply(d){ if(PEND>0) return; ls(DK,JSON.stringify(d)); render(d); }
 
 /* ---------- number pad for amounts ---------- */
@@ -1532,7 +1499,7 @@ function doLogin(){
 }
 
 function doLogout(){
-  clearAll(); DATA=null; PEND=0; $('pin').value=''; $('avMenu').classList.add('hide');
+  clearAll(); DATA=null; PEND=0; CURT=''; $('pin').value='';
   showHome(); show('loginBox');
 }
 
