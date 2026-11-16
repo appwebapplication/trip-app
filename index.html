@@ -1108,6 +1108,32 @@ function stopWatch(){
   WID=null;
 }
 
+/* one quick location when the app opens, so a fix is ready before Start, End or Add stop is tapped */
+var WARM=null, WARMED=false, PN={};
+function warmLoc(){
+  if(WARMED||!navigator.geolocation) return;
+  WARMED=true;
+  navigator.geolocation.getCurrentPosition(function(pp){
+    WARM={lat:pp.coords.latitude,lng:pp.coords.longitude,acc:pp.coords.accuracy,t:Date.now()};
+    phoneName(WARM.lat,WARM.lng,function(){});
+  },function(){},{enableHighAccuracy:false,timeout:8000,maximumAge:120000});
+}
+/* place name looked up on the phone (free service, no key); the result is kept for the session */
+function shortPlace(j){
+  var a=[j.locality,j.city].filter(function(x,i,r){ return x && r.indexOf(x)===i; });
+  if(!a.length && j.principalSubdivision) a=[j.principalSubdivision];
+  return a.join(', ').slice(0,80);
+}
+function phoneName(lat,lng,cb){
+  var k=lat.toFixed(4)+','+lng.toFixed(4);
+  if(PN[k]){ cb(PN[k]); return; }
+  var ctl=(typeof AbortController!=='undefined')?new AbortController():null, tm=setTimeout(function(){ if(ctl) ctl.abort(); },5000);
+  fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?latitude='+lat+'&longitude='+lng+'&localityLanguage=en',ctl?{signal:ctl.signal}:{})
+    .then(function(r){ return r.json(); })
+    .then(function(j){ clearTimeout(tm); var n=shortPlace(j||{}); if(n) PN[k]=n; cb(n); })
+    .catch(function(){ clearTimeout(tm); cb(''); });
+}
+
 function startWatch(el){
   stopWatch();
   PBOX=el; POS=null; LASTMAP=null; LALERT=false; MAPON=false;
@@ -1116,6 +1142,7 @@ function startWatch(el){
   if(mp) mp.innerHTML='';
   if(!navigator.geolocation){ box.className='sub bad'; box.textContent='No location support on this phone'; return; }
   // quick first fix (may be a recent one), then GPS keeps refining
+  if(WARM && Date.now()-WARM.t<180000) gotFix({coords:{latitude:WARM.lat,longitude:WARM.lng,accuracy:WARM.acc}},true);
   navigator.geolocation.getCurrentPosition(function(pp){ gotFix(pp,true); },function(){},
     {enableHighAccuracy:false,timeout:8000,maximumAge:30000});
   WID=navigator.geolocation.watchPosition(function(pp){ gotFix(pp,false); },locErr,
@@ -1128,6 +1155,7 @@ function gotFix(pp,q){
   var box=$(PBOX); if(!box) return;
   box.className='sub okc';
   box.textContent='Location found (±'+Math.round(POS.acc)+' m)'+(q?' · refining...':'');
+  phoneName(POS.lat,POS.lng,function(){});   // the name is ready by the time the trip is saved
   drawMap();
 }
 
@@ -1173,21 +1201,36 @@ function resumeAfterReload(){
 
 /* ---------- place names: asked after the save, so saving stays fast ---------- */
 var TRIED={};   // lookups already asked in this session
+function placeLoc(kind,id){
+  if(kind==='P'){ var f=null; DATA.trips.forEach(function(t){ (t.stops||[]).forEach(function(x){ if(x.id===id) f=x; }); }); return f?f.loc:''; }
+  var t=findTrip(id); return t?(kind==='S'?t.sloc:t.eloc):'';
+}
+function setPlaceLocal(kind,id,name){
+  if(kind==='P'){
+    DATA.trips.forEach(function(t){ (t.stops||[]).forEach(function(s){ if(s.id===id) s.name=name; }); });
+  } else {
+    var t=findTrip(id);
+    if(t){ if(kind==='S') t.sname=name; else t.ename=name; }
+  }
+  persist(); render(DATA);
+}
 function fetchPlace(kind,id){
   var k=kind+id; if(TRIED[k]) return; TRIED[k]=true;
-  RUN
-    .withSuccessHandler(function(r){
-      if(!r || !r.ok || !r.name || !DATA) return;
-      if(kind==='P'){
-        DATA.trips.forEach(function(t){ (t.stops||[]).forEach(function(s){ if(s.id===id) s.name=r.name; }); });
-      } else {
-        var t=findTrip(id);
-        if(t){ if(kind==='S') t.sname=r.name; else t.ename=r.name; }
-      }
-      persist(); render(DATA);
-    })
-    .withFailureHandler(function(){ delete TRIED[k]; })
-    .setPlace(ls(KEY),{kind:kind,id:id});
+  function viaServer(name){
+    RUN
+      .withSuccessHandler(function(r){
+        if(!r || !r.ok || !DATA) return;
+        if(r.name && !name) setPlaceLocal(kind,id,r.name);
+      })
+      .withFailureHandler(function(){ delete TRIED[k]; })
+      .setPlace(ls(KEY),{kind:kind,id:id,name:name||''});
+  }
+  var m=/^(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)$/.exec(String(placeLoc(kind,id)||''));
+  if(!m){ viaServer(''); return; }
+  phoneName(+m[1],+m[2],function(name){
+    if(name && DATA){ setPlaceLocal(kind,id,name); }   // shown at once; the server only stores it
+    viaServer(name);
+  });
 }
 
 /* if the app was closed before a name arrived, ask again on the next open (running trip and last finished trip, 3 at most) */
@@ -1207,7 +1250,9 @@ function fillMissing(){
 
 /* the screen's live GPS fix is ready: save right away; otherwise read once */
 function needLoc(lock, reset, ok){
-  if(POS && !POS.q && (WID!==null || Date.now()-POS.t<120000)){ ok(POS); return; }
+  // a GPS fix, or a quick fix that is already within 100 m, is good enough; anything rougher waits for GPS
+  if(POS && (!POS.q || POS.acc<=100) && (WID!==null || Date.now()-POS.t<120000)){ ok(POS); return; }
+  if(!POS && WARM && WARM.acc<=100 && Date.now()-WARM.t<120000){ POS={lat:WARM.lat,lng:WARM.lng,acc:WARM.acc,t:WARM.t,q:true}; ok(POS); return; }
   lock('Getting location...');
   findLoc(12000,function(p,e){
     if(p){ POS=p; ok(p); }
@@ -1388,10 +1433,10 @@ function init(){
   try{ history.replaceState({a:0},''); }catch(e){}
   var t=ls(KEY), c=getCached();
   if(!t){ show('loginBox'); return; }
-  if(c){ render(c); resumeAfterReload(); } else show('loading');      // instant open from saved copy
+  if(c){ render(c); resumeAfterReload(); warmLoc(); } else show('loading');      // instant open from saved copy
   RUN
     .withSuccessHandler(function(r){
-      if(r.ok){ apply(r.data); resumeAfterReload(); fillMissing(); } else { clearAll(); show('loginBox'); }
+      if(r.ok){ apply(r.data); resumeAfterReload(); fillMissing(); warmLoc(); } else { clearAll(); show('loginBox'); }
     })
     .withFailureHandler(function(){ if(!c) show('loginBox'); })
     .sync(t);
@@ -1402,7 +1447,7 @@ function doLogin(){
   RUN
     .withSuccessHandler(function(r){
       btn.disabled=false; btn.textContent='Login';
-      if(r.ok){ ls(KEY,r.token); ls(DK,JSON.stringify(r.data)); render(r.data); showHome(); fillMissing(); }
+      if(r.ok){ ls(KEY,r.token); ls(DK,JSON.stringify(r.data)); render(r.data); showHome(); fillMissing(); warmLoc(); }
       else $('msg').textContent=r.msg;
     })
     .withFailureHandler(function(e){
@@ -1451,7 +1496,8 @@ function drawStl(){
   S.list.forEach(function(x){
     var title=x.ext ? (x.type==='Return'?'Received from ':'Paid to ')+esc(x.from) : esc(x.type)+' · '+esc(x.mode)+(x.other?' ('+esc(x.other)+')':'');
     var pc=x.status==='Approved'?'done':x.status==='Rejected'?'bad':'wait';
-    h+='<div class="scard"><div class="tc-top"><span class="amtr">'+rupee(x.amt)+'</span><span class="pill '+pc+'">'+esc(x.status)+'</span></div>'+
+    var st=x.pending?'Sending...':x.status;
+    h+='<div class="scard"><div class="tc-top"><span class="amtr">'+rupee(x.amt)+'</span><span class="pill '+pc+'">'+esc(st)+'</span></div>'+
        '<div style="font-weight:700;margin-top:2px">'+title+'</div>'+
        '<div class="sub">'+dt(x.date)+'</div>'+
        (x.trips&&x.trips.length?'<div class="sub">'+(x.trips.length>3?x.trips.length+' trips':x.trips.map(function(t){return esc(t.t);}).join(', '))+'</div>':'')+
@@ -1523,26 +1569,44 @@ function sKey(k){
   if(v>mx){ $('sAmt').value=mx>0?String(mx):''; toast(mx>0?'Maximum '+rupee(mx):'Choose a trip first'); }
 }
 function saveSettle(){
-  if(SBUSY) return;
-  var msg=$('stMsg'), btn=$('stGo'); msg.textContent='';
-  var items=sAlloc(), amt=r2(Number($('sAmt').value)||0), net=sNet();
+  var msg=$('stMsg'); msg.textContent='';
+  var items=sAlloc(), amt=r2(Number($('sAmt').value)||0), net=sNet(), S=stlOf();
   if(Math.abs(net)<0.005){ msg.textContent='Choose trips that have a balance to settle'; return; }
   if(!(amt>0)||!items.length){ msg.textContent='Enter an amount above 0'; return; }
   if(!SF.mode){ msg.textContent='Select a mode'; return; }
   if(SF.mode==='Other Driver' && !SF.other){ msg.textContent='Select the other driver'; return; }
-  SBUSY=true; btn.disabled=true; btn.textContent='Sending...';
+
+  // shown at once as "Sending..."; the server answer confirms it, or it is taken back with a message
+  var id=SF.id||genId('STL'); SF.id='';
+  var type=net>0?'Return':'Paid', rem=$('sRem').value.trim().slice(0,200), mode=SF.mode, other=mode==='Other Driver'?SF.other:'';
+  var item={id:id,date:Date.now(),amt:amt,type:type,mode:mode,other:other,remarks:rem,status:'Submitted',
+            trips:items.map(function(i){return {t:i.t,a:i.a};}),pending:true};
+  function bump(sign){
+    items.forEach(function(i){
+      var e=S.elig.filter(function(x){return x.id===i.t;})[0]; if(e) e.pend=r2(e.pend+sign*i.a);
+      var t=findTrip(i.t); if(t) t.pend=r2((t.pend||0)+sign*i.a);
+    });
+  }
+  function undo(why){
+    S.list=S.list.filter(function(x){return x!==item;}); if(DATA.stl) DATA.stl.list=S.list;
+    bump(-1); persist(); toast('Not saved: '+why);
+    if(CUR==='stl') drawStl();
+  }
+  S.list.unshift(item); bump(1); persist(); PEND++;
+  toast('Submitted for approval'); renderStl();
+
   RUN
     .withSuccessHandler(function(r){
-      SBUSY=false; btn.disabled=false; btn.textContent='Submit settlement';
-      if(r.expired){ clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return; }
-      if(!r.ok){ msg.textContent=r.msg||'Not saved'; return; }
-      SF.id='';
+      PEND--;
+      if(r.expired){ PEND=0; clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return; }
+      if(!r.ok){ undo(r.msg||'server refused it'); return; }
+      item.pending=false;
       DATA.stl=r.data.stl;   // only the settlement part and each trip's settled figures change
       r.data.trips.forEach(function(n){ var t=findTrip(n.id); if(t){ t.sa=n.sa; t.pend=n.pend; t.rem=n.rem; } });
-      persist(); toast('Submitted for approval'); renderStl();
+      persist(); if(CUR==='stl') drawStl();
     })
-    .withFailureHandler(function(e){ SBUSY=false; btn.disabled=false; btn.textContent='Submit settlement'; msg.textContent='Not sent: '+e.message+'. Try again.'; })
-    .addSettlement(ls(KEY),{id:SF.id,type:net>0?'Return':'Paid',mode:SF.mode,other:SF.other,remarks:$('sRem').value.trim().slice(0,200),items:items});
+    .withFailureHandler(function(e){ PEND--; undo(e.message); })
+    .addSettlement(ls(KEY),{id:id,type:type,mode:mode,other:other,remarks:rem,items:items});
 }
 
 function pmenu(){ $('pMenu').classList.toggle('hide'); }
