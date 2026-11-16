@@ -139,7 +139,8 @@
 
   .nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: center; background: var(--card); box-shadow: 0 -2px 12px rgba(15,23,42,.08); }
   .nav button { flex: 1; max-width: 220px; margin: 0; border-radius: 0; background: transparent; color: var(--mute); padding: 10px 4px; font-size: 26px; line-height: 1.2; display: flex; flex-direction: column; align-items: center; gap: 1px; }
-  .nav button span { font-size: 16px; font-weight: 700; }
+  .nav button span { font-size: 15px; font-weight: 700; }
+  .nav button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   .nav button.on { color: var(--ink); }
   .nav button.on span { border-bottom: 2px solid var(--accent); }
   .fab { position: fixed; right: max(16px, calc(50% - 194px)); bottom: 72px; width: auto; margin: 0; padding: 12px 18px; border-radius: 26px; background: var(--accent); color: #0F172A; font-size: 15px; box-shadow: 0 6px 16px rgba(15,23,42,.3); z-index: 41; }
@@ -402,9 +403,9 @@
 
 <button id="fab" class="fab hide" onclick="fabAdd()"></button>
 <div id="nav" class="nav hide">
-  <button id="navTrip" onclick="navTo('trip')">🚚<span>Trip</span></button>
-  <button id="navProf" onclick="navTo('profile')">📊<span>Summary</span></button>
-  <button id="navStl" onclick="navTo('stl')">💰<span>Settlement</span></button>
+  <button id="navTrip" onclick="navTo('trip')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg><span>Trip</span></button>
+  <button id="navProf" onclick="navTo('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Summary</span></button>
+  <button id="navStl" onclick="navTo('stl')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg><span>Settlement</span></button>
 </div>
 
 <div id="locAlert" class="modal hide">
