@@ -312,14 +312,11 @@
         <div><h1>Settle</h1><div class="sub" id="sInfo"></div></div>
       </div>
       <div class="card">
-        <label>Type</label>
-        <div id="sTypes" class="chips" style="grid-template-columns:repeat(2,1fr)"></div>
-        <label>Trips</label>
-        <div id="sTrips"></div>
         <label>Amount</label>
         <div class="amtbox"><span>₹</span><input id="sAmt" class="amt" readonly inputmode="none" placeholder="0"></div>
         <div id="sPad" class="pad"></div>
-        <div class="sub" id="sSplit" style="margin-top:6px"></div>
+        <div class="srow" style="margin-top:8px" onclick="sToggle()"><div style="flex:1"><b id="sCov"></b></div><span id="sArrow" style="font-weight:800">▸</span></div>
+        <div id="sTrips" class="hide"></div>
         <label>Mode</label>
         <div id="sModes" class="chips" style="grid-template-columns:repeat(2,1fr)"></div>
         <div id="sOtherBox" class="hide">
@@ -1415,13 +1412,16 @@ function doLogin(){
 }
 
 /* ---------- Settlement tab ---------- */
-var SF={type:'',pick:{},mode:'',other:'',id:'',manual:false}, SBUSY=false, STTRY=false, STFAIL='';
+var SF={pick:{},mode:'',other:'',id:'',manual:false,open:false}, SBUSY=false, STTRY=false, STFAIL='';
 function stlOf(){ return (DATA&&DATA.stl)||null; }
-function sAvail(type){
+/* every finished trip that still has a balance to settle, oldest first; sv = signed amount (+ driver holds, − company owes) */
+function sTrips(){
   var S=stlOf(); if(!S) return [];
-  return S.elig.filter(function(e){ return (type==='Return'?e.rem>0:e.rem<0) && r2(Math.abs(e.rem)-e.pend)>0.004; })
-    .map(function(e){ return {id:e.id,start:e.start,vno:e.vno,avail:r2(Math.abs(e.rem)-e.pend)}; })
-    .sort(function(a,b){ return (Number(a.start)||0)-(Number(b.start)||0); });   // oldest first
+  return S.elig.map(function(e){
+      var sg=e.rem>0?1:-1, av=r2(Math.abs(e.rem)-e.pend);
+      return {id:e.id,start:e.start,vno:e.vno,sg:sg,avail:av,sv:r2(sg*av)};
+    }).filter(function(t){ return t.avail>0.004; })
+    .sort(function(a,b){ return (Number(a.start)||0)-(Number(b.start)||0); });
 }
 function renderStl(){ drawStl(); view('stl'); }
 function drawStl(){
@@ -1442,7 +1442,7 @@ function drawStl(){
   }
   var rem=S.rem, lab='All settled', c='';
   if(rem>0.004){ lab='To return'; c='neg'; } else if(rem<-0.004){ lab='To receive'; c='pos'; }
-  var can=sAvail('Return').length+sAvail('Paid').length>0;
+  var can=sTrips().length>0;
   var h='<div class="card" style="text-align:center;padding-top:14px"><div class="sub" style="font-weight:700;text-transform:uppercase">'+lab+'</div>'+
         '<div class="'+c+'" style="font-size:34px;font-weight:800;letter-spacing:-1px">'+rupee(Math.abs(rem))+'</div></div>'+
         (can?'<button class="accent" style="margin-top:10px" onclick="openSettle()">Settle</button>':'<div class="sub" style="text-align:center;margin-top:8px">No trip balance to settle</div>')+
@@ -1454,7 +1454,7 @@ function drawStl(){
     h+='<div class="scard"><div class="tc-top"><span class="amtr">'+rupee(x.amt)+'</span><span class="pill '+pc+'">'+esc(x.status)+'</span></div>'+
        '<div style="font-weight:700;margin-top:2px">'+title+'</div>'+
        '<div class="sub">'+dt(x.date)+'</div>'+
-       (x.trips&&x.trips.length?'<div class="sub">'+x.trips.map(function(t){return esc(t.t)+' '+rupee(t.a);}).join(' · ')+'</div>':'')+
+       (x.trips&&x.trips.length?'<div class="sub">'+(x.trips.length>3?x.trips.length+' trips':x.trips.map(function(t){return esc(t.t);}).join(', '))+'</div>':'')+
        (x.remarks?'<div class="sub">'+esc(x.remarks)+'</div>':'')+'</div>';
   });
   $('stlBody').innerHTML=h;
@@ -1462,46 +1462,47 @@ function drawStl(){
 
 function openSettle(){
   var S=stlOf(); if(!S) return;
-  var ret=sAvail('Return'), pd=sAvail('Paid');
-  SF.type=(ret.length&&(S.rem>=0||!pd.length))?'Return':'Paid';
-  SF.pick={}; SF.manual=false; SF.mode=S.modes[0]||''; SF.other='';
+  SF.pick={}; sTrips().forEach(function(t){ SF.pick[t.id]=true; });   // every trip is covered by default
+  SF.manual=false; SF.open=false; SF.mode=S.modes[0]||''; SF.other='';
   if(!SF.id) SF.id=genId('STL');
   $('sAmt').value=''; $('sRem').value=''; $('stMsg').textContent='';
   drawSF(); view('sf');
 }
-function sSum(){
-  var s=0; sAvail(SF.type).forEach(function(t){ if(SF.pick[t.id]) s+=t.avail; });
-  return r2(s);
+function sNet(){   // signed total of the chosen trips
+  var n=0; sTrips().forEach(function(t){ if(SF.pick[t.id]) n+=t.sv; });
+  return r2(n);
 }
+/* spread the amount over the chosen trips, oldest first: plus and minus trips together, the last trip may be part-covered */
 function sAlloc(){
-  var left=r2(Number($('sAmt').value)||0), out=[];
-  sAvail(SF.type).forEach(function(t){
-    if(!SF.pick[t.id]||left<=0.004) return;
-    var a=r2(Math.min(t.avail,left));
-    if(a>0.004){ out.push({t:t.id,a:a}); left=r2(left-a); }
-  });
+  var net=sNet(), amt=r2(Number($('sAmt').value)||0), out=[];
+  if(Math.abs(net)<0.005||amt<=0.004) return out;
+  var T=net>0?amt:-amt, cum=0;
+  var list=sTrips().filter(function(t){ return SF.pick[t.id]; });
+  for(var i=0;i<list.length;i++){
+    var gap=r2(T-cum); if(Math.abs(gap)<0.005) break;
+    var t=list[i], a;
+    if((t.sv>0)===(gap>0) && t.avail>Math.abs(gap)) a=Math.abs(gap);   // would overshoot: part of this trip
+    else a=t.avail;
+    out.push({t:t.id,a:r2(a)});
+    cum=r2(cum+(t.sv>0?a:-a));
+  }
   return out;
 }
-function sSplit(){
-  var it=sAlloc();
-  $('sSplit').textContent=it.length?it.map(function(x){return x.t+' '+rupee(x.a);}).join(' · '):'';
-}
 function drawSF(){
-  var S=stlOf(), list=sAvail(SF.type);
-  $('sInfo').textContent=SF.type==='Return'?'You give money back to the company':'The company pays you';
-  $('sTypes').innerHTML=['Return','Paid'].map(function(t){
-    var n=sAvail(t).length;
-    return '<button class="'+(SF.type===t?'on':'')+'" '+(n?'':'disabled style="opacity:.4" ')+'onclick="setSType(\''+t+'\')">'+t+'</button>';
-  }).join('');
-  var all=list.length>1?'<div class="sub" style="margin-top:4px"><a href="#" onclick="sAll();return false" style="color:var(--ink2);font-weight:700">Select all</a></div>':'';
-  $('sTrips').innerHTML=all+list.map(function(t){
+  var S=stlOf(), list=sTrips(), net=sNet(), n=0;
+  list.forEach(function(t){ if(SF.pick[t.id]) n++; });
+  $('sInfo').textContent=Math.abs(net)<0.005?'Choose trips to settle':(net>0?'To return · you give money back':'To receive · the company pays you');
+  var cur=Number($('sAmt').value)||0, mx=Math.abs(net);
+  if(!SF.manual || cur>mx){ $('sAmt').value=mx>0?String(mx):''; SF.manual=false; }
+  $('sCov').textContent='Covers '+n+' trip'+(n===1?'':'s')+(n?', oldest first':'');
+  $('sArrow').textContent=SF.open?'▾':'▸';
+  $('sTrips').classList.toggle('hide',!SF.open);
+  $('sTrips').innerHTML=list.map(function(t){
     var on=!!SF.pick[t.id];
     return '<div class="srow'+(on?' on':'')+'" onclick="sTog(\''+esc(jq(t.id))+'\')"><span class="sck">'+(on?'✓':'')+'</span>'+
-      '<div style="flex:1"><b>'+esc(t.id)+'</b><div class="sub">'+dt(t.start)+' · '+esc(t.vno)+'</div></div><b>'+rupee(t.avail)+'</b></div>';
+      '<div style="flex:1"><b>'+esc(t.id)+'</b><div class="sub">'+dt(t.start)+' · '+esc(t.vno)+'</div></div>'+
+      '<b class="'+(t.sv>0?'neg':'pos')+'">'+(t.sv>0?'+':'−')+rupee(t.avail)+'</b></div>';
   }).join('');
-  var sum=sSum(), cur=Number($('sAmt').value)||0;
-  if(!SF.manual || cur>sum) { $('sAmt').value=sum>0?String(sum):''; SF.manual=false; }
-  sSplit();
   $('sModes').innerHTML=S.modes.map(function(m,i){
     return '<button class="'+(SF.mode===m?'on':'')+'" onclick="sMode('+i+')">'+esc(m)+'</button>';
   }).join('');
@@ -1512,22 +1513,20 @@ function drawSF(){
     $('sOther').value=SF.other||'';
   }
 }
-function setSType(t){ SF.type=t; SF.pick={}; SF.manual=false; $('sAmt').value=''; drawSF(); }
+function sToggle(){ SF.open=!SF.open; drawSF(); }
 function sTog(id){ SF.pick[id]=!SF.pick[id]; SF.manual=false; drawSF(); }
-function sAll(){ sAvail(SF.type).forEach(function(t){ SF.pick[t.id]=true; }); SF.manual=false; drawSF(); }
 function sMode(i){ var S=stlOf(); SF.mode=S.modes[i]; drawSF(); }
 function sKey(k){
   padKey('sAmt',k);
   SF.manual=true;
-  var sum=sSum(), v=Number($('sAmt').value)||0;
-  if(v>sum){ $('sAmt').value=sum>0?String(sum):''; toast(sum>0?'Maximum '+rupee(sum):'Select a trip first'); }
-  sSplit();
+  var mx=Math.abs(sNet()), v=Number($('sAmt').value)||0;
+  if(v>mx){ $('sAmt').value=mx>0?String(mx):''; toast(mx>0?'Maximum '+rupee(mx):'Choose a trip first'); }
 }
 function saveSettle(){
   if(SBUSY) return;
   var msg=$('stMsg'), btn=$('stGo'); msg.textContent='';
-  var items=sAlloc(), amt=r2(Number($('sAmt').value)||0);
-  if(!sSum()){ msg.textContent='Select at least one trip'; return; }
+  var items=sAlloc(), amt=r2(Number($('sAmt').value)||0), net=sNet();
+  if(Math.abs(net)<0.005){ msg.textContent='Choose trips that have a balance to settle'; return; }
   if(!(amt>0)||!items.length){ msg.textContent='Enter an amount above 0'; return; }
   if(!SF.mode){ msg.textContent='Select a mode'; return; }
   if(SF.mode==='Other Driver' && !SF.other){ msg.textContent='Select the other driver'; return; }
@@ -1543,7 +1542,7 @@ function saveSettle(){
       persist(); toast('Submitted for approval'); renderStl();
     })
     .withFailureHandler(function(e){ SBUSY=false; btn.disabled=false; btn.textContent='Submit settlement'; msg.textContent='Not sent: '+e.message+'. Try again.'; })
-    .addSettlement(ls(KEY),{id:SF.id,type:SF.type,mode:SF.mode,other:SF.other,remarks:$('sRem').value.trim().slice(0,200),items:items});
+    .addSettlement(ls(KEY),{id:SF.id,type:net>0?'Return':'Paid',mode:SF.mode,other:SF.other,remarks:$('sRem').value.trim().slice(0,200),items:items});
 }
 
 function pmenu(){ $('pMenu').classList.toggle('hide'); }
