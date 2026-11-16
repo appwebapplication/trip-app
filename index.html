@@ -34,6 +34,9 @@
   .top { position: relative; }
   .top .grow { flex: 1; min-width: 0; }
   .avatar { width: 34px; height: 34px; border-radius: 10px; background: var(--btn); color: var(--btnt); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; cursor: pointer; }
+  .head { position: relative; }
+  .pmenu { position: absolute; right: 0; top: 40px; z-index: 30; background: var(--card); border-radius: 10px; padding: 6px; box-shadow: 0 8px 24px rgba(15,23,42,.2); min-width: 150px; }
+  .pmenu button { margin: 0; width: 100%; }
   .back { width: 34px; height: 34px; margin: 0; padding: 0; flex: none; border-radius: 10px; background: var(--card); color: var(--ink); font-size: 16px; box-shadow: var(--shadow); }
 
   button { width: 100%; padding: 11px; margin-top: 10px; font-size: 14px; font-weight: 600; font-family: inherit; border: 0; border-radius: 10px; cursor: pointer; background: var(--btn); color: var(--btnt); transition: transform .08s, opacity .2s; }
@@ -284,7 +287,9 @@
     <div id="profileView" class="hide">
       <div class="head">
         <button class="back" onclick="showHome()">←</button>
-        <h1>Profile</h1>
+        <h1 style="flex:1">Profile</h1>
+        <button class="back" onclick="event.stopPropagation();pmenu()" aria-label="Menu">⋮</button>
+        <div id="pMenu" class="pmenu hide"><button onclick="doLogout()">⎋ Sign out</button></div>
       </div>
       <div id="profBody"></div>
     </div>
@@ -588,7 +593,6 @@ function drawProfile(){
     '<div class="card" style="display:flex;align-items:center;gap:12px;padding-top:12px">'+
       '<div class="avatar" style="width:48px;height:48px;font-size:22px;cursor:default">'+esc(d.driver.letter)+'</div>'+
       '<div style="flex:1;min-width:0"><h1 style="font-size:18px">'+esc(d.driver.name||d.driver.first)+'</h1><div class="sub">'+esc(d.driver.id)+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' in total</div></div>'+
-      '<button class="ghost" style="width:auto;margin:0;padding:8px 12px;font-size:14px" onclick="doLogout()">Sign out</button>'+
     '</div>'+
     '<div class="card" style="margin-top:10px;padding-top:12px">'+
       '<div class="chips" style="grid-template-columns:1fr 1fr 1fr 52px">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('custom','📅')+'</div>'+
@@ -1366,6 +1370,8 @@ function doLogin(){
     .login($('user').value,$('pin').value);
 }
 
+function pmenu(){ $('pMenu').classList.toggle('hide'); }
+document.addEventListener('click',function(){ var m=$('pMenu'); if(m) m.classList.add('hide'); });
 function doLogout(){
   clearAll(); DATA=null; PEND=0; CURT=''; $('pin').value='';
   showHome(); show('loginBox');
