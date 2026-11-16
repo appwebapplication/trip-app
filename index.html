@@ -310,6 +310,8 @@
       </div>
       <div id="sBody"></div>
       <div class="card" style="margin-top:10px">
+        <label for="sDir">Type</label>
+        <select id="sDir"></select>
         <label for="sMode">Mode</label>
         <select id="sMode"></select>
         <label for="sRem">Remarks (optional)</label>
@@ -1362,7 +1364,7 @@ function submitEnd(){
 }
 
 /* ---------- settle amount (driver ticks trips; the office approves in the sheet) ---------- */
-var SID='', SROWS=[], SBUSY=false;
+var SID='', SROWS=[], SBUSY=false, SDKEY='', DIR_PAID='Paid to driver';
 function backToProfile(){ drawProfile(); view('profile'); }
 function openSettle(){
   if(PEND>0){ toast('Please wait, saving...'); return; }
@@ -1379,7 +1381,7 @@ function drawSettle(){
   SROWS=DATA.trips.filter(function(t){return !t.running && availOf(t)!==0;})
     .sort(function(a,b){return (Number(a.start)||0)-(Number(b.start)||0);});
   $('sMode').innerHTML=(DATA.smodes||[]).map(function(m){return '<option>'+esc(m)+'</option>';}).join('');
-  $('sRem').value=''; $('sMsg2').textContent=''; $('sSave').disabled=false; $('sSave').textContent='Submit settlement';
+  SDKEY=''; $('sRem').value=''; $('sMsg2').textContent=''; $('sSave').disabled=false; $('sSave').textContent='Submit settlement';
   $('sBody').innerHTML = SROWS.length ? '<button class="ghost mini" style="margin:0 0 4px" onclick="sAll()">Select all</button>'+
     SROWS.map(function(t,i){
       var a=availOf(t);
@@ -1401,8 +1403,18 @@ function sItems(){
   });
   return {items:items,bad:bad};
 }
+function sDirs(net){
+  var all=DATA.sdirs||[], l=all.filter(function(x){ return net<0 ? x===DIR_PAID : net>0 ? x!==DIR_PAID : true; });
+  if(!l.length) l=all;
+  var key=l.join('|'), el=$('sDir'), cur=el.value;
+  if(key!==SDKEY){
+    SDKEY=key; el.innerHTML=l.map(function(m){return '<option>'+esc(m)+'</option>';}).join('');
+    if(l.indexOf(cur)>=0) el.value=cur;
+  }
+}
 function sCalc(){
   var r=sItems(), net=r2(r.items.reduce(function(s,x){return s+x.amt;},0));
+  sDirs(net);
   $('sNet').textContent=rupee(Math.abs(net))+(net===0?'':net>0?' · you return':' · paid to you');
   $('sMsg2').textContent=r.bad;
 }
@@ -1421,7 +1433,7 @@ function saveSettle(){
       backToProfile(); toast('Settlement sent for approval');
     })
     .withFailureHandler(function(e){ SBUSY=false; btn.disabled=false; btn.textContent='Submit settlement'; msg.textContent='Could not save: '+e.message; })
-    .addSettlement(ls(KEY),{id:SID,items:r.items,mode:$('sMode').value,remarks:$('sRem').value.trim()});
+    .addSettlement(ls(KEY),{id:SID,items:r.items,dir:$('sDir').value,mode:$('sMode').value,remarks:$('sRem').value.trim()});
 }
 
 /* ---------- session ---------- */
