@@ -110,13 +110,6 @@
   .pill { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; }
   .pill.wait { background: rgba(249,115,22,.16); color: var(--wait); }
   .pill.done { background: rgba(16,185,129,.16); color: var(--go); }
-  .pill.set { background: rgba(16,185,129,.16); color: var(--go); }
-  .pill.part { background: rgba(249,115,22,.16); color: var(--wait); }
-  .pill.pnd { background: var(--inp); color: var(--ink2); box-shadow: inset 0 0 0 1px var(--line); }
-  .pill.awt { background: rgba(99,102,241,.14); color: var(--ind); }
-  .srow { background: var(--card); border-radius: 10px; padding: 8px 10px; margin-top: 8px; box-shadow: var(--shadow); }
-  .srow label.chk { margin: 0; padding: 0; border: 0; background: transparent; font-size: 14px; }
-  .srow .sa { margin-top: 6px; }
   .hero .pill.wait { background: var(--wait); color: #fff; }
   .hero .pill.done { background: var(--go); color: #fff; }
 
@@ -303,25 +296,6 @@
       <button class="ghost" style="margin-top:6px" onclick="doLogout()">Sign out</button>
     </div>
 
-    <div id="settleView" class="hide">
-      <div class="head">
-        <button class="back" onclick="backToProfile()">←</button>
-        <div><h1>Settle amount</h1><div class="sub">Tick the trips to settle. The office approves it.</div></div>
-      </div>
-      <div id="sBody"></div>
-      <div class="card" style="margin-top:10px">
-        <label for="sDir">Type</label>
-        <select id="sDir"></select>
-        <label for="sMode">Mode</label>
-        <select id="sMode"></select>
-        <label for="sRem">Remarks (optional)</label>
-        <input id="sRem" maxlength="200">
-        <div class="stat flat"><span>Net settlement</span><b id="sNet" style="font-size:22px">₹0</b></div>
-      </div>
-      <button id="sSave" class="accent" onclick="saveSettle()">Submit settlement</button>
-      <div class="err" id="sMsg2"></div>
-    </div>
-
     <div id="advView" class="hide">
       <div class="head">
         <button class="back" onclick="backToTrip()">←</button>
@@ -457,7 +431,7 @@ var L_AGAIN='again', RK='driver_reload';   // RK: remembers the screen to reopen
 function $(i){return document.getElementById(i);}
 function show(id){['loading','loginBox','appBox'].forEach(function(x){$(x).classList.toggle('hide',x!==id);}); navSync();}
 
-var VIEWS=['home','start','end','detail','adv','exp','stop','profile','settle'];
+var VIEWS=['home','start','end','detail','adv','exp','stop','profile'];
 function navSync(){
   var on=!$('appBox').classList.contains('hide');
   $('nav').classList.toggle('hide', !on || ['home','detail','profile'].indexOf(CUR)<0);
@@ -481,7 +455,6 @@ window.addEventListener('popstate',function(){
   if(!$('big').classList.contains('hide')){ closeBig(); try{history.pushState({a:1},'');}catch(e){} }
   else if(!$('locAlert').classList.contains('hide')){ closeLocAlert(); try{history.pushState({a:1},'');}catch(e){} }
   else if(CUR==='adv'||CUR==='exp'||CUR==='stop') backToTrip();
-  else if(CUR==='settle') backToProfile();
   else if(CUR==='detail') detailBack();
   else if(CUR==='start'||CUR==='end'||CUR==='profile') showHome();
   // on Home: Back leaves the app
@@ -492,6 +465,7 @@ function showHome(){
   var r=DATA&&DATA.running&&findTrip(DATA.running.id);
   if(r) openTripId(r.id,''); else { CURT=''; view('home'); }
 }
+function backToProfile(){ drawProfile(); view('profile'); }
 function detailBack(){
   var t=findTrip(CURT); if(t&&t.running) return;
   if(DFROM==='p') backToProfile(); else showHome();
@@ -560,39 +534,16 @@ function navTo(x){
   if(x==='profile') renderProfile(); else showHome();
 }
 
-/* ---------- settlement tags ---------- */
-function availOf(t){ return r2((t.bal||0)-(t.setl||0)-(t.wait||0)); }
-function pm(p){ return p<0 ? 'owed to you '+rupee(-p) : rupee(p); }
-function stag(t){
-  if(t.running) return '';
-  var bal=r2(t.bal||0), setl=r2(t.setl||0), wait=r2(t.wait||0), pend=r2(bal-setl);
-  if(bal===0 && setl===0 && wait===0) return '';
-  if(pend===0) return '<span class="pill set">Settled</span>';
-  if(wait!==0 && r2(pend-wait)===0) return '<span class="pill awt">Awaiting approval</span>';
-  if(setl!==0) return '<span class="pill part">Part settled · '+pm(pend)+' pending</span>'+(wait!==0?' <span class="pill awt">'+rupee(Math.abs(wait))+' awaiting</span>':'');
-  return '<span class="pill pnd">Pending '+pm(pend)+'</span>'+(wait!==0?' <span class="pill awt">'+rupee(Math.abs(wait))+' awaiting</span>':'');
-}
 function tripCard(t,from){
   return '<div class="tcard done" onclick="openTripId(\''+esc(jq(t.id))+'\',\''+from+'\')">'+
     '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill done">Completed</span></div>'+
     (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
     '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+' · '+esc(t.tk)+' km</div>'+
-    tagRow(t)+
     '<div class="tc-money">'+
       '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
       '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
       '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
     '</div></div>';
-}
-function tagRow(t){ var g=stag(t); return g?'<div style="margin-top:5px">'+g+'</div>':''; }
-function dueInfo(){
-  var H=DATA.hidden||{n:0,pend:0}, due=H.pend||0, wait=0, avail=H.n>0&&Math.abs(H.pend||0)>0.004;
-  DATA.trips.forEach(function(t){
-    if(t.running) return;
-    due+=(t.bal||0)-(t.setl||0); wait+=(t.wait||0);
-    if(availOf(t)!==0) avail=true;
-  });
-  return {due:r2(due),wait:r2(wait),avail:avail};
 }
 
 /* ---------- profile with trip-start filter ---------- */
@@ -608,7 +559,6 @@ function pRange(){
   return {a:a,b:b};
 }
 function pLabel(r){
-  if(PF.mode==='pending') return 'Completed trips with an amount pending';
   function f(ms){ return new Date(ms).toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'}); }
   if(r.a===null&&r.b===null) return 'All trips';
   return 'Trips started '+(r.a!==null?f(r.a):'the beginning')+' – '+(r.b!==null?f(r.b-1):'today');
@@ -636,7 +586,6 @@ function drawProfile(){
   var list=d.trips.filter(function(t){
     var s=Number(t.start)||0;
     if(t.running) return false;   // the Profile lists completed trips only
-    if(PF.mode==='pending' && r2((t.bal||0)-(t.setl||0))===0) return false;
     return (r.a===null||s>=r.a)&&(r.b===null||s<r.b);
   });
   var A=0,E=0,K=0;
@@ -648,16 +597,8 @@ function drawProfile(){
       '<div class="avatar" style="width:48px;height:48px;font-size:22px;cursor:default">'+esc(d.driver.letter)+'</div>'+
       '<div><h1 style="font-size:18px">'+esc(d.driver.name||d.driver.first)+'</h1><div class="sub">'+esc(d.driver.id)+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' in total</div></div>'+
     '</div>'+
-    (function(){
-      var di=dueInfo(), sub=di.due>0.004?'Cash to return to the office':di.due<-0.004?'To be paid to you':'All settled';
-      return '<div class="card" style="margin-top:10px;padding-top:12px">'+
-        '<div class="stat flat" style="margin-top:0"><span>Amount due</span><b class="'+(di.due>0.004?'neg':'pos')+'" style="font-size:24px">'+rupee(di.due)+'</b></div>'+
-        '<div class="sub" style="margin-top:6px">'+sub+(di.wait!==0?' · '+rupee(di.wait)+' awaiting approval':'')+'</div>'+
-        (di.avail?'<button class="accent" onclick="openSettle()">Settle amount</button>':'')+
-      '</div>';
-    })()+
     '<div class="card" style="margin-top:10px;padding-top:12px">'+
-      '<div class="chips">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('pending','Pending')+chip('custom','Custom')+'</div>'+
+      '<div class="chips">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('custom','Custom')+'</div>'+
       (PF.mode==='custom'?'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'+
         '<div><label for="pfFrom">From</label><input type="date" id="pfFrom" value="'+esc(PF.from)+'" onchange="setPFdates()"></div>'+
         '<div><label for="pfTo">To</label><input type="date" id="pfTo" value="'+esc(PF.to)+'" onchange="setPFdates()"></div></div>':'')+
@@ -666,7 +607,7 @@ function drawProfile(){
     '<div class="stats" style="margin-top:10px">'+
       '<div class="stat"><span>Advance</span><b>'+rupee(A)+'</b></div>'+
       '<div class="stat"><span>Expense</span><b>'+rupee(E)+'</b></div>'+
-      '<div class="stat"><span>Trip balance</span><b class="'+cls(B)+'">'+rupee(B)+'</b></div>'+
+      '<div class="stat"><span>Balance</span><b class="'+cls(B)+'">'+rupee(B)+'</b></div>'+
     '</div>'+
     '<div class="sub" style="margin:6px 2px 10px">'+list.length+' trip'+(list.length===1?'':'s')+' · '+Math.round(K*100)/100+' km</div>'+
     (list.length?list.map(function(t){ return tripCard(t,'p'); }).join(''):'<div class="empty-note">No trips in this period.</div>');
@@ -789,13 +730,8 @@ function drawDetail(id){
     '<div class="stats">'+
       '<div class="stat"><span>Advances</span><b>'+rupee(t.adv)+'</b></div>'+
       '<div class="stat"><span>Expenses</span><b>'+rupee(t.exp)+'</b></div>'+
-      '<div class="stat"><span>Trip balance</span><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
+      '<div class="stat"><span>Balance</span><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
     '</div>'+
-    ((!t.running&&(r2(t.bal)!==0||t.setl||t.wait))?'<div class="stats" style="margin-top:8px">'+
-      '<div class="stat"><span>Settled</span><b>'+rupee(t.setl||0)+'</b></div>'+
-      '<div class="stat"><span>Pending</span><b class="'+cls(r2(t.bal-(t.setl||0)))+'">'+rupee(r2(t.bal-(t.setl||0)))+'</b></div>'+
-      '<div class="stat"><span>Awaiting</span><b>'+rupee(t.wait||0)+'</b></div>'+
-    '</div>':'')+
     '<div class="seg"><div class="seg-thumb" style="transform:translateX('+(TAB==='stp'?0:TAB==='adv'?100:200)+'%)"></div>'+tabs.map(function(x){return '<button class="'+(x[0]===TAB?'on':'')+'" data-k="'+x[0]+'" onclick="setTab(\''+x[0]+'\')">'+x[1]+' <span>'+x[2]+'</span></button>';}).join('')+'</div>'+
     '<div id="tabList">'+list+'</div>'+
     '';
@@ -1361,79 +1297,6 @@ function submitEnd(){
       .endTrip(ls(KEY),{tid:ETID,ek:km,loc:eloc});
   }
   needLoc(lock,reset,save);
-}
-
-/* ---------- settle amount (driver ticks trips; the office approves in the sheet) ---------- */
-var SID='', SROWS=[], SBUSY=false, SDKEY='', DIR_PAID='Paid to driver';
-function backToProfile(){ drawProfile(); view('profile'); }
-function openSettle(){
-  if(PEND>0){ toast('Please wait, saving...'); return; }
-  function go(){ SID=genId('SET'); drawSettle(); view('settle'); }
-  if(DATA.hidden&&DATA.hidden.n>0){
-    toast('Loading all trips...');
-    RUN
-      .withSuccessHandler(function(r){ if(r.ok){ apply(r.data); go(); } else toast('Could not load trips'); })
-      .withFailureHandler(function(){ toast('Could not load trips'); })
-      .sync(ls(KEY),true);
-  } else go();
-}
-function drawSettle(){
-  SROWS=DATA.trips.filter(function(t){return !t.running && availOf(t)!==0;})
-    .sort(function(a,b){return (Number(a.start)||0)-(Number(b.start)||0);});
-  $('sMode').innerHTML=(DATA.smodes||[]).map(function(m){return '<option>'+esc(m)+'</option>';}).join('');
-  SDKEY=''; $('sRem').value=''; $('sMsg2').textContent=''; $('sSave').disabled=false; $('sSave').textContent='Submit settlement';
-  $('sBody').innerHTML = SROWS.length ? '<button class="ghost mini" style="margin:0 0 4px" onclick="sAll()">Select all</button>'+
-    SROWS.map(function(t,i){
-      var a=availOf(t);
-      return '<div class="srow"><label class="chk"><input type="checkbox" id="sc'+i+'" onchange="sCalc()"><span><b>'+esc(t.id)+'</b> · '+sdate(t.start)+(t.route?' · '+esc(t.route):'')+
-        '<br><small style="color:var(--mute)">'+(a>0?'Pending ':'Office owes you ')+rupee(Math.abs(a))+'</small></span></label>'+
-        '<input class="sa" id="sa'+i+'" type="number" inputmode="decimal" step="any" value="'+Math.abs(a)+'" oninput="sCalc()"></div>';
-    }).join('') : '<div class="empty-note">Nothing to settle.</div>';
-  sCalc();
-}
-function sAll(){ SROWS.forEach(function(t,i){ $('sc'+i).checked=true; }); sCalc(); }
-function sItems(){
-  var items=[], bad='';
-  SROWS.forEach(function(t,i){
-    if(!$('sc'+i).checked) return;
-    var a=availOf(t), v=r2(Number($('sa'+i).value));
-    if(!(v>0)){ bad='Enter an amount for '+t.id; return; }
-    if(v>Math.abs(a)){ bad=t.id+': more than pending ('+rupee(Math.abs(a))+')'; return; }
-    items.push({tid:t.id,amt:a>0?v:-v});
-  });
-  return {items:items,bad:bad};
-}
-function sDirs(net){
-  var all=DATA.sdirs||[], l=all.filter(function(x){ return net<0 ? x===DIR_PAID : net>0 ? x!==DIR_PAID : true; });
-  if(!l.length) l=all;
-  var key=l.join('|'), el=$('sDir'), cur=el.value;
-  if(key!==SDKEY){
-    SDKEY=key; el.innerHTML=l.map(function(m){return '<option>'+esc(m)+'</option>';}).join('');
-    if(l.indexOf(cur)>=0) el.value=cur;
-  }
-}
-function sCalc(){
-  var r=sItems(), net=r2(r.items.reduce(function(s,x){return s+x.amt;},0));
-  sDirs(net);
-  $('sNet').textContent=rupee(Math.abs(net))+(net===0?'':net>0?' · you return':' · paid to you');
-  $('sMsg2').textContent=r.bad;
-}
-function saveSettle(){
-  if(SBUSY) return;
-  var r=sItems(), msg=$('sMsg2'), btn=$('sSave');
-  if(r.bad){ msg.textContent=r.bad; return; }
-  if(!r.items.length){ msg.textContent='Tick at least one trip'; return; }
-  SBUSY=true; btn.disabled=true; btn.textContent='Saving...'; msg.textContent='';
-  RUN
-    .withSuccessHandler(function(x){
-      SBUSY=false;
-      if(x.expired){ clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return; }
-      if(!x.ok){ btn.disabled=false; btn.textContent='Submit settlement'; msg.textContent=x.msg||'Not saved'; return; }
-      if(x.data) apply(x.data);
-      backToProfile(); toast('Settlement sent for approval');
-    })
-    .withFailureHandler(function(e){ SBUSY=false; btn.disabled=false; btn.textContent='Submit settlement'; msg.textContent='Could not save: '+e.message; })
-    .addSettlement(ls(KEY),{id:SID,items:r.items,dir:$('sDir').value,mode:$('sMode').value,remarks:$('sRem').value.trim()});
 }
 
 /* ---------- session ---------- */
