@@ -534,10 +534,10 @@ function navTo(x){
 }
 
 function tripCard(t,from){
-  return '<div class="tcard done" onclick="openTripId(\''+esc(jq(t.id))+'\',\''+from+'\')">'+
-    '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill done">Completed</span></div>'+
+  return '<div class="tcard '+(t.running?'':'done')+'" onclick="openTripId(\''+esc(jq(t.id))+'\',\''+from+'\')">'+
+    '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill '+(t.running?'wait':'done')+'">'+(t.running?'● In progress':'Completed')+'</span></div>'+
     (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
-    '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+' · '+esc(t.tk)+' km</div>'+
+    '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+(t.running?'':' · '+esc(t.tk)+' km')+'</div>'+
     '<div class="tc-money">'+
       '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
       '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
@@ -584,7 +584,6 @@ function drawProfile(){
   }
   var list=d.trips.filter(function(t){
     var s=Number(t.start)||0;
-    if(t.running) return false;   // the Profile lists completed trips only
     return (r.a===null||s>=r.a)&&(r.b===null||s<r.b);
   });
   var A=0,E=0,K=0;
