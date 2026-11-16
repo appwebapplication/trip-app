@@ -293,7 +293,6 @@
         <h1>Profile</h1>
       </div>
       <div id="profBody"></div>
-      <button class="ghost" style="margin-top:6px" onclick="doLogout()">Sign out</button>
     </div>
 
     <div id="advView" class="hide">
@@ -595,10 +594,11 @@ function drawProfile(){
   $('profBody').innerHTML =
     '<div class="card" style="display:flex;align-items:center;gap:12px;padding-top:12px">'+
       '<div class="avatar" style="width:48px;height:48px;font-size:22px;cursor:default">'+esc(d.driver.letter)+'</div>'+
-      '<div><h1 style="font-size:18px">'+esc(d.driver.name||d.driver.first)+'</h1><div class="sub">'+esc(d.driver.id)+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' in total</div></div>'+
+      '<div style="flex:1;min-width:0"><h1 style="font-size:18px">'+esc(d.driver.name||d.driver.first)+'</h1><div class="sub">'+esc(d.driver.id)+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' in total</div></div>'+
+      '<button class="ghost" style="width:auto;margin:0;padding:8px 12px;font-size:14px" onclick="doLogout()">Sign out</button>'+
     '</div>'+
     '<div class="card" style="margin-top:10px;padding-top:12px">'+
-      '<div class="chips">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('custom','Custom')+'</div>'+
+      '<div class="chips" style="grid-template-columns:1fr 1fr 1fr 52px">'+chip('month','This month')+chip('last','Last month')+chip('all','All')+chip('custom','📅')+'</div>'+
       (PF.mode==='custom'?'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'+
         '<div><label for="pfFrom">From</label><input type="date" id="pfFrom" value="'+esc(PF.from)+'" onchange="setPFdates()"></div>'+
         '<div><label for="pfTo">To</label><input type="date" id="pfTo" value="'+esc(PF.to)+'" onchange="setPFdates()"></div></div>':'')+
