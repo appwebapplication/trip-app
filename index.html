@@ -1415,7 +1415,7 @@ function doLogin(){
 }
 
 /* ---------- Settlement tab ---------- */
-var SF={type:'',pick:{},mode:'',other:'',id:'',manual:false}, SBUSY=false;
+var SF={type:'',pick:{},mode:'',other:'',id:'',manual:false}, SBUSY=false, STTRY=false, STFAIL='';
 function stlOf(){ return (DATA&&DATA.stl)||null; }
 function sAvail(type){
   var S=stlOf(); if(!S) return [];
@@ -1426,7 +1426,20 @@ function sAvail(type){
 function renderStl(){ drawStl(); view('stl'); }
 function drawStl(){
   var S=stlOf();
-  if(!S){ $('stlBody').innerHTML='<div class="empty-note">Loading...</div>'; return; }
+  if(!S){
+    $('stlBody').innerHTML='<div class="empty-note">'+(STFAIL||'Loading...')+'</div>';
+    if(!STTRY){   // saved copy is from the old version: ask the server once
+      STTRY=true;
+      RUN
+        .withSuccessHandler(function(r){
+          if(r&&r.ok&&r.data&&r.data.stl){ STFAIL=''; apply(r.data); if(!DATA.stl) DATA.stl=r.data.stl; if(CUR==='stl') drawStl(); }
+          else { STFAIL=(r&&r.ok)?'Settlement data is missing from the server. Update Code.gs and deploy a New version.':'Login again to load settlements.'; if(CUR==='stl') drawStl(); }
+        })
+        .withFailureHandler(function(e){ STFAIL='Could not load: '+e.message; STTRY=false; if(CUR==='stl') drawStl(); })
+        .sync(ls(KEY));
+    }
+    return;
+  }
   var rem=S.rem, lab='All settled', c='';
   if(rem>0.004){ lab='To return'; c='neg'; } else if(rem<-0.004){ lab='To receive'; c='pos'; }
   var can=sAvail('Return').length+sAvail('Paid').length>0;
