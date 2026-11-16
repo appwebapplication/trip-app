@@ -111,6 +111,13 @@
   .pill { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; font-weight: 700; }
   .pill.wait { background: rgba(249,115,22,.16); color: var(--wait); }
   .pill.done { background: rgba(16,185,129,.16); color: var(--go); }
+  .pill.bad { background: rgba(239,68,68,.14); color: var(--stop); }
+  .scard { background: var(--card); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; box-shadow: var(--shadow); }
+  .scard .amtr { font-weight: 800; font-size: 16px; letter-spacing: -.2px; }
+  .srow { display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 10px; background: var(--inp); box-shadow: inset 0 0 0 1.5px var(--line); margin-top: 6px; cursor: pointer; }
+  .srow.on { box-shadow: inset 0 0 0 2px var(--go); }
+  .sck { width: 22px; height: 22px; flex: none; border-radius: 6px; background: #fff; box-shadow: inset 0 0 0 2px var(--line); display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; }
+  .srow.on .sck { background: var(--go); box-shadow: none; }
   .hero .pill.wait { background: var(--wait); color: #fff; }
   .hero .pill.done { background: var(--go); color: #fff; }
 
@@ -287,11 +294,43 @@
     <div id="profileView" class="hide">
       <div class="head">
         <button class="back" onclick="showHome()">←</button>
-        <h1 style="flex:1">Profile</h1>
+        <h1 style="flex:1">Summary</h1>
         <div id="pAv" class="avatar" onclick="event.stopPropagation();pmenu()"></div>
         <div id="pMenu" class="pmenu hide" onclick="event.stopPropagation()"><div id="pmInfo"></div><button onclick="doLogout()">⎋ Sign out</button></div>
       </div>
       <div id="profBody"></div>
+    </div>
+
+    <div id="stlView" class="hide">
+      <div class="head"><h1>Settlement</h1></div>
+      <div id="stlBody"></div>
+    </div>
+
+    <div id="sfView" class="hide">
+      <div class="head">
+        <button class="back" onclick="renderStl()">←</button>
+        <div><h1>Settle</h1><div class="sub" id="sInfo"></div></div>
+      </div>
+      <div class="card">
+        <label>Type</label>
+        <div id="sTypes" class="chips" style="grid-template-columns:repeat(2,1fr)"></div>
+        <label>Trips</label>
+        <div id="sTrips"></div>
+        <label>Amount</label>
+        <div class="amtbox"><span>₹</span><input id="sAmt" class="amt" readonly inputmode="none" placeholder="0"></div>
+        <div id="sPad" class="pad"></div>
+        <div class="sub" id="sSplit" style="margin-top:6px"></div>
+        <label>Mode</label>
+        <div id="sModes" class="chips" style="grid-template-columns:repeat(2,1fr)"></div>
+        <div id="sOtherBox" class="hide">
+          <label for="sOther">Other driver</label>
+          <select id="sOther" onchange="SF.other=this.value"></select>
+        </div>
+        <label for="sRem">Remarks (optional)</label>
+        <input id="sRem" maxlength="200">
+      </div>
+      <button id="stGo" onclick="saveSettle()">Submit settlement</button>
+      <div class="err" id="stMsg"></div>
     </div>
 
     <div id="advView" class="hide">
@@ -367,7 +406,8 @@
 <button id="fab" class="fab hide" onclick="fabAdd()"></button>
 <div id="nav" class="nav hide">
   <button id="navTrip" onclick="navTo('trip')">🚚<span>Trip</span></button>
-  <button id="navProf" onclick="navTo('profile')">👤<span>Profile</span></button>
+  <button id="navProf" onclick="navTo('profile')">📊<span>Summary</span></button>
+  <button id="navStl" onclick="navTo('stl')">💰<span>Settlement</span></button>
 </div>
 
 <div id="locAlert" class="modal hide">
@@ -429,12 +469,13 @@ var L_AGAIN='again', RK='driver_reload';   // RK: remembers the screen to reopen
 function $(i){return document.getElementById(i);}
 function show(id){['loading','loginBox','appBox'].forEach(function(x){$(x).classList.toggle('hide',x!==id);}); navSync();}
 
-var VIEWS=['home','start','end','detail','adv','exp','stop','profile'];
+var VIEWS=['home','start','end','detail','adv','exp','stop','profile','stl','sf'];
 function navSync(){
   var on=!$('appBox').classList.contains('hide');
-  $('nav').classList.toggle('hide', !on || ['home','detail','profile'].indexOf(CUR)<0);
+  $('nav').classList.toggle('hide', !on || ['home','detail','profile','stl'].indexOf(CUR)<0);
   $('navTrip').classList.toggle('on',CUR==='home'||(CUR==='detail'&&!detOnProf()));
   $('navProf').classList.toggle('on',CUR==='profile'||(CUR==='detail'&&detOnProf()));
+  $('navStl').classList.toggle('on',CUR==='stl'||CUR==='sf');
   fabUpdate();
 }
 var DFROM='';   // where the open trip came from: 'p' = Profile list, 't' = Last trip line, '' = the running trip (Trip tab)
@@ -454,7 +495,8 @@ window.addEventListener('popstate',function(){
   else if(!$('locAlert').classList.contains('hide')){ closeLocAlert(); try{history.pushState({a:1},'');}catch(e){} }
   else if(CUR==='adv'||CUR==='exp'||CUR==='stop') backToTrip();
   else if(CUR==='detail') detailBack();
-  else if(CUR==='start'||CUR==='end'||CUR==='profile') showHome();
+  else if(CUR==='sf') renderStl();
+  else if(CUR==='start'||CUR==='end'||CUR==='profile'||CUR==='stl') showHome();
   // on Home: Back leaves the app
 });
 
@@ -525,11 +567,12 @@ function render(d){
   show('appBox');
   if(CUR==='home' && d.running && findTrip(d.running.id)) openTripId(d.running.id,'');
   else if(CURT && !$('detailView').classList.contains('hide')) drawDetail(CURT);
+  else if(CUR==='stl') drawStl();
 }
 
 function navTo(x){
   if(!DATA) return;
-  if(x==='profile') renderProfile(); else showHome();
+  if(x==='profile') renderProfile(); else if(x==='stl') renderStl(); else showHome();
 }
 
 function tripCard(t,from){
@@ -541,7 +584,9 @@ function tripCard(t,from){
       '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
       '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
       '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
-    '</div></div>';
+    '</div>'+
+    (t.sa?'<div class="sub" style="margin-top:4px">Settled '+rupee(Math.abs(t.sa))+' · Left '+rupee(Math.abs(r2(t.bal+t.sa)))+'</div>':'')+
+    '</div>';
 }
 
 /* ---------- profile with trip-start filter ---------- */
@@ -1342,6 +1387,7 @@ window.addEventListener('offline',netUpdate);
 
 function init(){
   buildPad('aPad','aAmt'); buildPad('xPad','xAmt'); netUpdate();
+  $('sPad').innerHTML=['1','2','3','4','5','6','7','8','9','.','0','⌫'].map(function(k){ return '<button type="button" onclick="sKey(\''+k+'\')">'+k+'</button>'; }).join('');
   try{ history.replaceState({a:0},''); }catch(e){}
   var t=ls(KEY), c=getCached();
   if(!t){ show('loginBox'); return; }
@@ -1366,6 +1412,125 @@ function doLogin(){
       btn.disabled=false; btn.textContent='Login'; $('msg').textContent='Error: '+e.message;
     })
     .login($('user').value,$('pin').value);
+}
+
+/* ---------- Settlement tab ---------- */
+var SF={type:'',pick:{},mode:'',other:'',id:'',manual:false}, SBUSY=false;
+function stlOf(){ return (DATA&&DATA.stl)||null; }
+function sAvail(type){
+  var S=stlOf(); if(!S) return [];
+  return S.elig.filter(function(e){ return (type==='Return'?e.rem>0:e.rem<0) && r2(Math.abs(e.rem)-e.pend)>0.004; })
+    .map(function(e){ return {id:e.id,start:e.start,vno:e.vno,avail:r2(Math.abs(e.rem)-e.pend)}; })
+    .sort(function(a,b){ return (Number(a.start)||0)-(Number(b.start)||0); });   // oldest first
+}
+function renderStl(){ drawStl(); view('stl'); }
+function drawStl(){
+  var S=stlOf();
+  if(!S){ $('stlBody').innerHTML='<div class="empty-note">Loading...</div>'; return; }
+  var rem=S.rem, lab='All settled', c='';
+  if(rem>0.004){ lab='To return'; c='neg'; } else if(rem<-0.004){ lab='To receive'; c='pos'; }
+  var can=sAvail('Return').length+sAvail('Paid').length>0;
+  var h='<div class="card" style="text-align:center;padding-top:14px"><div class="sub" style="font-weight:700;text-transform:uppercase">'+lab+'</div>'+
+        '<div class="'+c+'" style="font-size:34px;font-weight:800;letter-spacing:-1px">'+rupee(Math.abs(rem))+'</div></div>'+
+        (can?'<button class="accent" style="margin-top:10px" onclick="openSettle()">Settle</button>':'<div class="sub" style="text-align:center;margin-top:8px">No trip balance to settle</div>')+
+        '<div class="sec"><h2>My requests</h2></div>';
+  if(!S.list.length) h+='<div class="empty-note">No settlements yet.</div>';
+  S.list.forEach(function(x){
+    var title=x.ext ? (x.type==='Return'?'Received from ':'Paid to ')+esc(x.from) : esc(x.type)+' · '+esc(x.mode)+(x.other?' ('+esc(x.other)+')':'');
+    var pc=x.status==='Approved'?'done':x.status==='Rejected'?'bad':'wait';
+    h+='<div class="scard"><div class="tc-top"><span class="amtr">'+rupee(x.amt)+'</span><span class="pill '+pc+'">'+esc(x.status)+'</span></div>'+
+       '<div style="font-weight:700;margin-top:2px">'+title+'</div>'+
+       '<div class="sub">'+dt(x.date)+'</div>'+
+       (x.trips&&x.trips.length?'<div class="sub">'+x.trips.map(function(t){return esc(t.t)+' '+rupee(t.a);}).join(' · ')+'</div>':'')+
+       (x.remarks?'<div class="sub">'+esc(x.remarks)+'</div>':'')+'</div>';
+  });
+  $('stlBody').innerHTML=h;
+}
+
+function openSettle(){
+  var S=stlOf(); if(!S) return;
+  var ret=sAvail('Return'), pd=sAvail('Paid');
+  SF.type=(ret.length&&(S.rem>=0||!pd.length))?'Return':'Paid';
+  SF.pick={}; SF.manual=false; SF.mode=S.modes[0]||''; SF.other='';
+  if(!SF.id) SF.id=genId('STL');
+  $('sAmt').value=''; $('sRem').value=''; $('stMsg').textContent='';
+  drawSF(); view('sf');
+}
+function sSum(){
+  var s=0; sAvail(SF.type).forEach(function(t){ if(SF.pick[t.id]) s+=t.avail; });
+  return r2(s);
+}
+function sAlloc(){
+  var left=r2(Number($('sAmt').value)||0), out=[];
+  sAvail(SF.type).forEach(function(t){
+    if(!SF.pick[t.id]||left<=0.004) return;
+    var a=r2(Math.min(t.avail,left));
+    if(a>0.004){ out.push({t:t.id,a:a}); left=r2(left-a); }
+  });
+  return out;
+}
+function sSplit(){
+  var it=sAlloc();
+  $('sSplit').textContent=it.length?it.map(function(x){return x.t+' '+rupee(x.a);}).join(' · '):'';
+}
+function drawSF(){
+  var S=stlOf(), list=sAvail(SF.type);
+  $('sInfo').textContent=SF.type==='Return'?'You give money back to the company':'The company pays you';
+  $('sTypes').innerHTML=['Return','Paid'].map(function(t){
+    var n=sAvail(t).length;
+    return '<button class="'+(SF.type===t?'on':'')+'" '+(n?'':'disabled style="opacity:.4" ')+'onclick="setSType(\''+t+'\')">'+t+'</button>';
+  }).join('');
+  var all=list.length>1?'<div class="sub" style="margin-top:4px"><a href="#" onclick="sAll();return false" style="color:var(--ink2);font-weight:700">Select all</a></div>':'';
+  $('sTrips').innerHTML=all+list.map(function(t){
+    var on=!!SF.pick[t.id];
+    return '<div class="srow'+(on?' on':'')+'" onclick="sTog(\''+esc(jq(t.id))+'\')"><span class="sck">'+(on?'✓':'')+'</span>'+
+      '<div style="flex:1"><b>'+esc(t.id)+'</b><div class="sub">'+dt(t.start)+' · '+esc(t.vno)+'</div></div><b>'+rupee(t.avail)+'</b></div>';
+  }).join('');
+  var sum=sSum(), cur=Number($('sAmt').value)||0;
+  if(!SF.manual || cur>sum) { $('sAmt').value=sum>0?String(sum):''; SF.manual=false; }
+  sSplit();
+  $('sModes').innerHTML=S.modes.map(function(m,i){
+    return '<button class="'+(SF.mode===m?'on':'')+'" onclick="sMode('+i+')">'+esc(m)+'</button>';
+  }).join('');
+  var oth=SF.mode==='Other Driver';
+  $('sOtherBox').classList.toggle('hide',!oth);
+  if(oth){
+    $('sOther').innerHTML='<option value="">Select driver</option>'+S.drivers.map(function(d){return '<option value="'+esc(d.id)+'">'+esc(d.id)+(d.name?' · '+esc(d.name):'')+'</option>';}).join('');
+    $('sOther').value=SF.other||'';
+  }
+}
+function setSType(t){ SF.type=t; SF.pick={}; SF.manual=false; $('sAmt').value=''; drawSF(); }
+function sTog(id){ SF.pick[id]=!SF.pick[id]; SF.manual=false; drawSF(); }
+function sAll(){ sAvail(SF.type).forEach(function(t){ SF.pick[t.id]=true; }); SF.manual=false; drawSF(); }
+function sMode(i){ var S=stlOf(); SF.mode=S.modes[i]; drawSF(); }
+function sKey(k){
+  padKey('sAmt',k);
+  SF.manual=true;
+  var sum=sSum(), v=Number($('sAmt').value)||0;
+  if(v>sum){ $('sAmt').value=sum>0?String(sum):''; toast(sum>0?'Maximum '+rupee(sum):'Select a trip first'); }
+  sSplit();
+}
+function saveSettle(){
+  if(SBUSY) return;
+  var msg=$('stMsg'), btn=$('stGo'); msg.textContent='';
+  var items=sAlloc(), amt=r2(Number($('sAmt').value)||0);
+  if(!sSum()){ msg.textContent='Select at least one trip'; return; }
+  if(!(amt>0)||!items.length){ msg.textContent='Enter an amount above 0'; return; }
+  if(!SF.mode){ msg.textContent='Select a mode'; return; }
+  if(SF.mode==='Other Driver' && !SF.other){ msg.textContent='Select the other driver'; return; }
+  SBUSY=true; btn.disabled=true; btn.textContent='Sending...';
+  RUN
+    .withSuccessHandler(function(r){
+      SBUSY=false; btn.disabled=false; btn.textContent='Submit settlement';
+      if(r.expired){ clearAll(); show('loginBox'); $('msg').textContent='Session expired. Login again.'; return; }
+      if(!r.ok){ msg.textContent=r.msg||'Not saved'; return; }
+      SF.id='';
+      DATA.stl=r.data.stl;   // only the settlement part and each trip's settled figures change
+      r.data.trips.forEach(function(n){ var t=findTrip(n.id); if(t){ t.sa=n.sa; t.pend=n.pend; t.rem=n.rem; } });
+      persist(); toast('Submitted for approval'); renderStl();
+    })
+    .withFailureHandler(function(e){ SBUSY=false; btn.disabled=false; btn.textContent='Submit settlement'; msg.textContent='Not sent: '+e.message+'. Try again.'; })
+    .addSettlement(ls(KEY),{id:SF.id,type:SF.type,mode:SF.mode,other:SF.other,remarks:$('sRem').value.trim().slice(0,200),items:items});
 }
 
 function pmenu(){ $('pMenu').classList.toggle('hide'); }
