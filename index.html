@@ -158,6 +158,23 @@
   .tc-money { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 6px; padding-top: 6px; border-top: 1px dashed var(--line); font-size: 14px; }
   .tc-money small { display: block; color: var(--mute); font-size: 12px; font-weight: 600; text-transform: uppercase; }
   .tc-money b { font-weight: 700; }
+  .sbar { margin-top: 8px; padding: 6px 10px; border-radius: 8px; font-size: 13px; font-weight: 700; }
+  .sbar.ok { background: rgba(16,185,129,.15); color: #047857; }
+  .sbar.part { background: rgba(249,115,22,.15); color: #C2410C; }
+  .sbar.wait { background: var(--inp); color: var(--mute); }
+  .balcard { background: var(--card); border-radius: 12px; padding: 12px 14px; margin-top: 8px; box-shadow: var(--shadow); }
+  .balcard .bl { display: block; font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: .3px; }
+  .balcard .bbig { font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-top: 2px; }
+  .balcard .bbig small { font-size: 13px; font-weight: 700; letter-spacing: 0; color: var(--mute); margin-left: 4px; }
+  .balcard .bsub { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .balcard .bsub small { display: block; font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; }
+  .balcard .bsub b { font-size: 16px; font-weight: 800; }
+  .tc-r { display: flex; align-items: center; gap: 6px; }
+  .kmb { background: var(--ink); color: #fff; border-radius: 8px; padding: 2px 9px; font-size: 13px; font-weight: 800; letter-spacing: -.2px; white-space: nowrap; }
+  .kmbanner { display: flex; justify-content: space-between; align-items: center; background: var(--ink); color: #fff; border-radius: 12px; padding: 12px 14px; margin-top: 10px; box-shadow: var(--shadow); }
+  .kmbanner span { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; opacity: .75; }
+  .kmbanner b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-top: 2px; }
+  .kmbanner small { font-size: 13px; font-weight: 600; opacity: .85; text-align: right; }
 
   .item { background: var(--card); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow); }
   .item.tmp { opacity: .6; }
@@ -572,17 +589,19 @@ function navTo(x){
   if(x==='profile') renderProfile(); else if(x==='stl') renderStl(); else showHome();
 }
 
+function kmf(n){ return (Math.round((Number(n)||0)*100)/100).toLocaleString('en-IN'); }
 function tripCard(t,from){
   return '<div class="tcard '+(t.running?'':'done')+'" onclick="openTripId(\''+esc(jq(t.id))+'\',\''+from+'\')">'+
-    '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="pill '+(t.running?'wait':'done')+'">'+(t.running?'● In progress':'Completed')+'</span></div>'+
+    '<div class="tc-top"><b>'+esc(t.id)+'</b><span class="tc-r">'+(t.running?'':'<span class="kmb">'+kmf(t.tk)+' km</span>')+'<span class="pill '+(t.running?'wait':'done')+'">'+(t.running?'● In progress':'Completed')+'</span></span></div>'+
     (t.route?'<div class="sub" style="font-weight:600;color:var(--ink2)">🛣 '+esc(t.route)+'</div>':'')+
-    '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+(t.running?'':' · '+esc(t.tk)+' km')+'</div>'+
+    '<div class="sub">'+dt(t.start)+' · '+esc(t.vno)+'</div>'+
     '<div class="tc-money">'+
       '<div><small>Advance</small><b>'+rupee(t.adv)+'</b></div>'+
       '<div><small>Expense</small><b>'+rupee(t.exp)+'</b></div>'+
       '<div><small>Balance</small><b class="'+cls(t.bal)+'">'+rupee(t.bal)+'</b></div>'+
     '</div>'+
-    (t.sa?'<div class="sub" style="margin-top:4px">Settled '+rupee(Math.abs(t.sa))+' · Left '+rupee(Math.abs(r2(t.bal+t.sa)))+'</div>':'')+
+    (t.sa?(function(){ var left=Math.abs(r2(t.bal+t.sa)); return '<div class="sbar '+(left<0.005?'ok':'part')+'">'+(left<0.005?'✓ ':'')+'Settled '+rupee(Math.abs(t.sa))+' · Left '+rupee(left)+'</div>'; })():'')+
+    (t.pend>0.004?'<div class="sbar wait">'+rupee(t.pend)+' waiting for approval</div>':'')+
     '</div>';
 }
 
@@ -629,7 +648,10 @@ function drawProfile(){
   });
   var A=0,E=0,K=0;
   list.forEach(function(t){ A+=t.adv; E+=t.exp; K+=(Number(t.tk)||0); });
-  A=r2(A); E=r2(E); var B=r2(A-E);
+  var C=0, P=0;
+  list.forEach(function(t){ C+=t.bal+(t.sa||0); P+=(t.pend||0); });
+  A=r2(A); E=r2(E); var B=r2(A-E); C=r2(C); P=r2(P);
+  var S=r2(B-C), clab=C>0.004?'To return':C<-0.004?'To receive':(Math.abs(S)>0.004?'Settled ✓':'Nothing due');
   function chip(m,l){ return '<button class="'+(PF.mode===m?'on':'')+'" style="font-size:13px" onclick="setPF(\''+m+'\')">'+l+'</button>'; }
   $('pAv').textContent=d.driver.letter;
   $('pmInfo').innerHTML='<div style="padding:6px 8px 8px"><b style="font-size:16px">'+esc(d.driver.name||d.driver.first)+'</b><div class="sub">'+esc(d.driver.id)+' · '+d.tripCount+' trip'+(d.tripCount===1?'':'s')+' in total</div></div>';
@@ -641,12 +663,17 @@ function drawProfile(){
         '<div><label for="pfTo">To</label><input type="date" id="pfTo" value="'+esc(PF.to)+'" onchange="setPFdates()"></div></div>':'')+
       '<div class="sub" style="margin-top:8px">'+pLabel(r)+(PLOAD?' · loading older trips...':'')+'</div>'+
     '</div>'+
-    '<div class="stats" style="margin-top:10px">'+
+    '<div class="kmbanner"><div><span>Total KM</span><b>'+kmf(K)+' km</b></div><small>'+list.length+' trip'+(list.length===1?'':'s')+'</small></div>'+
+    '<div class="stats" style="margin-top:10px;grid-template-columns:1fr 1fr">'+
       '<div class="stat"><span>Advance</span><b>'+rupee(A)+'</b></div>'+
       '<div class="stat"><span>Expense</span><b>'+rupee(E)+'</b></div>'+
-      '<div class="stat"><span>Balance</span><b class="'+cls(B)+'">'+rupee(B)+'</b></div>'+
     '</div>'+
-    '<div class="sub" style="margin:6px 2px 10px">'+list.length+' trip'+(list.length===1?'':'s')+' · '+Math.round(K*100)/100+' km</div>'+
+    '<div class="balcard"><span class="bl">Current balance</span>'+
+      '<div class="bbig '+cls(C)+'">'+rupee(Math.abs(C))+'<small>'+clab+'</small></div>'+
+      '<div class="bsub"><div><small>Trip balance</small><b class="'+cls(B)+'">'+rupee(B)+'</b></div><div><small>Settled</small><b>'+rupee(Math.abs(S))+'</b></div></div>'+
+      (P>0.004?'<div class="sbar wait">'+rupee(P)+' waiting for approval</div>':'')+
+    '</div>'+
+    '<div style="height:10px"></div>'+
     (list.length?list.map(function(t){ return tripCard(t,'p'); }).join(''):'<div class="empty-note">No trips in this period.</div>');
 }
 
@@ -1522,8 +1549,9 @@ function sNet(){   // signed total of the chosen trips
 function sAlloc(){
   var net=sNet(), amt=r2(Number($('sAmt').value)||0), out=[];
   if(Math.abs(net)<0.005||amt<=0.004) return out;
-  var T=net>0?amt:-amt, cum=0;
   var list=sTrips().filter(function(t){ return SF.pick[t.id]; });
+  if(Math.abs(amt-Math.abs(net))<0.005) return list.map(function(t){ return {t:t.id,a:t.avail}; });   // the whole balance: every chosen trip is cleared
+  var T=net>0?amt:-amt, cum=0;
   for(var i=0;i<list.length;i++){
     var gap=r2(T-cum); if(Math.abs(gap)<0.005) break;
     var t=list[i], a;
