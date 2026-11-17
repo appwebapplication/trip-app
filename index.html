@@ -213,6 +213,15 @@
   #big .bn.r { left: auto; right: 10px; }
   #bCnt { position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; color: #fff; font-size: 14px; font-weight: 600; }
 
+  .hbtn { width: 34px; height: 34px; min-width: 34px; margin: 0; padding: 0; border-radius: 50%; background: var(--card); color: var(--ink); border: 1px solid var(--line); font-size: 17px; font-weight: 700; box-shadow: var(--shadow); }
+  #helpView { position: fixed; inset: 0; z-index: 70; background: var(--bg); overflow-y: auto; padding: 14px 14px 30px; }
+  #helpView .hw { max-width: 420px; margin: 0 auto; }
+  .hlang { display: flex; gap: 6px; margin: 0 0 12px; }
+  .hlang button { margin: 0; flex: 1; padding: 8px; font-size: 14px; background: var(--card); color: var(--ink); border: 1px solid var(--line); }
+  .hlang button.on { background: var(--btn); color: var(--btnt); }
+  .hitem { display: block; width: 100%; text-align: left; margin: 0 0 8px; padding: 14px; background: var(--card); color: var(--ink); border: 1px solid var(--line); border-radius: var(--r); font-size: 15px; box-shadow: var(--shadow); }
+  .hstep { display: flex; gap: 10px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; margin-bottom: 8px; font-size: 15px; line-height: 1.45; }
+  .hstep b.n { flex: 0 0 26px; height: 26px; border-radius: 50%; background: var(--ind); color: #fff; font-size: 13px; display: flex; align-items: center; justify-content: center; }
   .modal { position: fixed; inset: 0; z-index: 60; background: rgba(15,23,42,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
   .modal-card { background: var(--card); border-radius: 16px; padding: 16px; width: 100%; max-width: 340px; box-shadow: 0 20px 50px rgba(15,23,42,.35); }
   .modal-card h2 { font-size: 16px; }
@@ -253,6 +262,7 @@
           <h1 id="hello"></h1>
           <div class="sub" id="sub"></div>
         </div>
+        <button class="hbtn" onclick="openHelp()" aria-label="Help">?</button>
       </div>
       <div id="runBox"></div>
       <div id="lastBox"></div>
@@ -311,6 +321,7 @@
     <div id="profileView" class="hide">
       <div class="head">
         <h1 style="flex:1">Summary</h1>
+        <button class="hbtn" onclick="openHelp()" aria-label="Help" style="margin-right:8px">?</button>
         <div id="pAv" class="avatar" onclick="event.stopPropagation();pmenu()"></div>
         <div id="pMenu" class="pmenu hide" onclick="event.stopPropagation()"><div id="pmInfo"></div><button onclick="doLogout()">⎋ Sign out</button></div>
       </div>
@@ -422,6 +433,18 @@
   <button id="navProf" onclick="navTo('profile')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Summary</span></button>
   <button id="navStl" onclick="navTo('stl')"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg><span>Settlement</span></button>
 </div>
+
+<div id="helpView" class="hide"><div class="hw">
+  <div class="head">
+    <button class="back" id="hBack" onclick="helpBack()">←</button>
+    <h1 id="hTitle" style="flex:1"></h1>
+  </div>
+  <div class="hlang">
+    <button id="hlMl" onclick="helpLang('ml')">മലയാളം</button>
+    <button id="hlEn" onclick="helpLang('en')">English</button>
+  </div>
+  <div id="hBody"></div>
+</div></div>
 
 <div id="locAlert" class="modal hide">
   <div class="modal-card">
@@ -1445,6 +1468,52 @@ function padKey(id,k){
   }
   el.value=v;
 }
+
+/* ---------- help guide (Malayalam / English) ---------- */
+/* Optional: paste a video link for a topic, e.g. HELP_VIDEO.start='https://youtu.be/xxxx' */
+var HELP_VIDEO={start:'',expense:'',advance:'',stop:'',end:'',settle:'',loc:''};
+var HELP=[
+ {id:'start',ic:'🚚',ml:'ട്രിപ്പ് തുടങ്ങുക',en:'Start a trip',
+  mls:['"Trip" ടാബിൽ "Start trip" അമർത്തുക.','ഫോണിൽ ലൊക്കേഷൻ ഓൺ ആക്കുക. "Location found" വരുന്നത് വരെ കാത്തിരിക്കുക.','വാഹനം തിരഞ്ഞെടുക്കുക, Start KM നൽകുക.','"Start trip" അമർത്തുക.'],
+  ens:['In the Trip tab, tap "Start trip".','Turn Location ON in the phone. Wait for "Location found".','Choose the vehicle and enter the Start KM.','Tap "Start trip".']},
+ {id:'expense',ic:'🧾',ml:'ചെലവ് ചേർക്കുക',en:'Add an expense',
+  mls:['നടക്കുന്ന ട്രിപ്പ് തുറക്കുക.','"Expense" ടാബ് തിരഞ്ഞെടുക്കുക.','താഴെ വലതുവശത്തെ ഓറഞ്ച് ബട്ടൺ അമർത്തുക.','ഇനം (Category) തിരഞ്ഞെടുക്കുക, തുക നൽകുക, ബിൽ ഫോട്ടോ എടുക്കുക.','"Save expense" അമർത്തുക.'],
+  ens:['Open the running trip.','Choose the "Expense" tab.','Tap the orange button at the bottom right.','Choose the category, enter the amount and take a photo of the bill.','Tap "Save expense".']},
+ {id:'advance',ic:'💵',ml:'അഡ്വാൻസ് ചേർക്കുക',en:'Add an advance',
+  mls:['നടക്കുന്ന ട്രിപ്പ് തുറക്കുക.','"Advance" ടാബ് തിരഞ്ഞെടുക്കുക.','താഴെ വലതുവശത്തെ ഓറഞ്ച് ബട്ടൺ അമർത്തുക.','തുകയും പണം കിട്ടിയ രീതിയും (Cash / UPI) നൽകുക.','"Save advance" അമർത്തുക.'],
+  ens:['Open the running trip.','Choose the "Advance" tab.','Tap the orange button at the bottom right.','Enter the amount and how you received it (Cash / UPI).','Tap "Save advance".']},
+ {id:'stop',ic:'📍',ml:'സ്റ്റോപ്പ് ചേർക്കുക',en:'Add a stop',
+  mls:['നടക്കുന്ന ട്രിപ്പ് തുറക്കുക.','Stops ടാബ് തിരഞ്ഞെടുക്കുക, ഓറഞ്ച് ബട്ടൺ അമർത്തുക.','ലൊക്കേഷൻ കിട്ടുന്നത് വരെ കാത്തിരിക്കുക.','"Save stop" അമർത്തുക.'],
+  ens:['Open the running trip.','Choose the Stops tab and tap the orange button.','Wait until the location is found.','Tap "Save stop".']},
+ {id:'end',ic:'🏁',ml:'ട്രിപ്പ് അവസാനിപ്പിക്കുക',en:'End a trip',
+  mls:['നടക്കുന്ന ട്രിപ്പിൽ "End trip" അമർത്തുക.','End KM നൽകുക.','ലൊക്കേഷൻ കിട്ടുന്നത് വരെ കാത്തിരിക്കുക.','"End trip" അമർത്തുക.'],
+  ens:['On the running trip, tap "End trip".','Enter the End KM.','Wait until the location is found.','Tap "End trip".']},
+ {id:'settle',ic:'🤝',ml:'സെറ്റിൽമെന്റ് (പണം തിരികെ നൽകുക / വാങ്ങുക)',en:'Settlement (return or receive money)',
+  mls:['താഴെയുള്ള "Settlement" ടാബ് തുറക്കുക.','"Settle" അമർത്തുക.','തുകയും രീതിയും (Cash / UPI) തിരഞ്ഞെടുക്കുക.','"Submit settlement" അമർത്തുക.','ഓഫീസ് അംഗീകരിക്കുമ്പോൾ ട്രിപ്പിൽ "Settled" എന്ന് കാണിക്കും.'],
+  ens:['Open the "Settlement" tab at the bottom.','Tap "Settle".','Choose the amount and mode (Cash / UPI).','Tap "Submit settlement".','When the office approves it, the trip shows "Settled".']},
+ {id:'loc',ic:'🛰️',ml:'ലൊക്കേഷൻ കിട്ടുന്നില്ല',en:'Location not working',
+  mls:['ഫോണിൽ Location ഓൺ ആക്കുക (മുകളിൽ നിന്ന് താഴേക്ക് സ്വൈപ്പ് ചെയ്യുക).','Chrome-ൽ ലൊക്കേഷൻ "Allow" ചെയ്യുക.','വാഹനം തുറസ്സായ സ്ഥലത്ത് നിർത്തുക, കെട്ടിടത്തിനുള്ളിൽ ആകരുത്.','"Waiting for GPS" കാണിക്കുമ്പോൾ 25 സെക്കൻഡ് വരെ കാത്തിരിക്കുക.','വന്നില്ലെങ്കിൽ "Retry location" അമർത്തുക.'],
+  ens:['Turn Location ON in the phone (swipe down from the top).','Allow Location for Chrome.','Park in the open, not inside a building.','When it shows "Waiting for GPS", wait up to 25 seconds.','If it still fails, tap "Retry location".']}
+];
+var HLANG=ls('helpLang')||'ml', HOPEN=-1;
+function helpDraw(){
+  var ml=HLANG==='ml', h='';
+  $('hlMl').classList.toggle('on',ml); $('hlEn').classList.toggle('on',!ml);
+  if(HOPEN<0){
+    $('hTitle').textContent=ml?'സഹായം':'Help';
+    HELP.forEach(function(t,i){ h+='<button class="hitem" onclick="helpTopic('+i+')">'+t.ic+'&nbsp; '+(ml?t.ml:t.en)+'</button>'; });
+  } else {
+    var t=HELP[HOPEN], st=ml?t.mls:t.ens;
+    $('hTitle').textContent=ml?t.ml:t.en;
+    st.forEach(function(x,i){ h+='<div class="hstep"><b class="n">'+(i+1)+'</b><div>'+x+'</div></div>'; });
+    if(HELP_VIDEO[t.id]) h+='<button class="accent" onclick="window.open(HELP_VIDEO[\''+t.id+'\'],\'_blank\')">▶ '+(ml?'വീഡിയോ കാണുക':'Watch video')+'</button>';
+  }
+  $('hBody').innerHTML=h;
+}
+function openHelp(){ HOPEN=-1; helpDraw(); $('helpView').classList.remove('hide'); $('helpView').scrollTop=0; }
+function helpBack(){ if(HOPEN>=0){ HOPEN=-1; helpDraw(); $('helpView').scrollTop=0; } else $('helpView').classList.add('hide'); }
+function helpTopic(i){ HOPEN=i; helpDraw(); $('helpView').scrollTop=0; }
+function helpLang(l){ HLANG=l; ls('helpLang',l); helpDraw(); }
 
 /* ---------- location help popup ---------- */
 function showLocAlert(){
