@@ -163,18 +163,15 @@
   .sbar.part { background: rgba(249,115,22,.15); color: #C2410C; }
   .sbar.wait { background: var(--inp); color: var(--mute); }
   .balcard { background: var(--card); border-radius: 12px; padding: 12px 14px; margin-top: 8px; box-shadow: var(--shadow); }
+  .balcard .bhead { display: flex; justify-content: space-between; align-items: center; }
   .balcard .bl { display: block; font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; letter-spacing: .3px; }
   .balcard .bbig { font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.15; margin-top: 2px; }
   .balcard .bbig small { font-size: 13px; font-weight: 700; letter-spacing: 0; color: var(--mute); margin-left: 4px; }
-  .balcard .bsub { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+  .balcard .bsub { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 8px; margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line); }
   .balcard .bsub small { display: block; font-size: 12px; font-weight: 600; color: var(--mute); text-transform: uppercase; }
   .balcard .bsub b { font-size: 16px; font-weight: 800; }
   .tc-r { display: flex; align-items: center; gap: 6px; }
   .kmb { background: var(--ink); color: #fff; border-radius: 8px; padding: 2px 9px; font-size: 13px; font-weight: 800; letter-spacing: -.2px; white-space: nowrap; }
-  .kmbanner { display: flex; justify-content: space-between; align-items: center; background: var(--ink); color: #fff; border-radius: 12px; padding: 12px 14px; margin-top: 10px; box-shadow: var(--shadow); }
-  .kmbanner span { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .3px; opacity: .75; }
-  .kmbanner b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -1px; line-height: 1.1; margin-top: 2px; }
-  .kmbanner small { font-size: 13px; font-weight: 600; opacity: .85; text-align: right; }
 
   .item { background: var(--card); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; box-shadow: var(--shadow); }
   .item.tmp { opacity: .6; }
@@ -663,15 +660,13 @@ function drawProfile(){
         '<div><label for="pfTo">To</label><input type="date" id="pfTo" value="'+esc(PF.to)+'" onchange="setPFdates()"></div></div>':'')+
       '<div class="sub" style="margin-top:8px">'+pLabel(r)+(PLOAD?' · loading older trips...':'')+'</div>'+
     '</div>'+
-    '<div class="kmbanner"><div><span>Total KM</span><b>'+kmf(K)+' km</b></div><small>'+list.length+' trip'+(list.length===1?'':'s')+'</small></div>'+
-    '<div class="stats" style="margin-top:10px;grid-template-columns:1fr 1fr">'+
-      '<div class="stat"><span>Advance</span><b>'+rupee(A)+'</b></div>'+
-      '<div class="stat"><span>Expense</span><b>'+rupee(E)+'</b></div>'+
-    '</div>'+
-    '<div class="balcard"><span class="bl">Current balance</span>'+
+    '<div class="balcard"><div class="bhead"><span class="bl">Current balance</span><span class="bl">'+list.length+' trip'+(list.length===1?'':'s')+'</span></div>'+
       '<div class="bbig '+cls(C)+'">'+rupee(Math.abs(C))+'<small>'+clab+'</small></div>'+
-      '<div class="bsub"><div><small>Trip balance</small><b class="'+cls(B)+'">'+rupee(B)+'</b></div><div><small>Settled</small><b>'+rupee(Math.abs(S))+'</b></div></div>'+
       (P>0.004?'<div class="sbar wait">'+rupee(P)+' waiting for approval</div>':'')+
+      '<div class="bsub">'+
+        '<div><small>Advance</small><b>'+rupee(A)+'</b></div><div><small>Expense</small><b>'+rupee(E)+'</b></div>'+
+        '<div><small>Settled</small><b>'+rupee(Math.abs(S))+'</b></div><div><small>Total KM</small><b>'+kmf(K)+' km</b></div>'+
+      '</div>'+
     '</div>'+
     '<div style="height:10px"></div>'+
     (list.length?list.map(function(t){ return tripCard(t,'p'); }).join(''):'<div class="empty-note">No trips in this period.</div>');
