@@ -1113,13 +1113,6 @@ function saveStop(){
 }
 
 /* ---------- live location (starts when the screen opens) ---------- */
-function findLoc(timeout, done){
-  if(!navigator.geolocation){ done(null,{code:0,message:'no geolocation support'}); return; }
-  navigator.geolocation.getCurrentPosition(
-    function(p){ done({lat:p.coords.latitude,lng:p.coords.longitude,acc:p.coords.accuracy,t:Date.now()},null); },
-    function(e){ done(null,e); },
-    {enableHighAccuracy:true,timeout:timeout,maximumAge:0});
-}
 function locText(p){ return p.lat.toFixed(6)+','+p.lng.toFixed(6); }
 
 function mdist(a,b){
@@ -1128,6 +1121,7 @@ function mdist(a,b){
 }
 
 function stopWatch(){
+  locCancel();   // leaving the screen: a save that was waiting for GPS is cancelled, never saved later
   if(WID!==null && navigator.geolocation){ try{ navigator.geolocation.clearWatch(WID); }catch(e){} }
   WID=null;
 }
@@ -1169,6 +1163,9 @@ function startWatch(el){
   if(WARM && Date.now()-WARM.t<180000) gotFix({coords:{latitude:WARM.lat,longitude:WARM.lng,accuracy:WARM.acc}},true);
   navigator.geolocation.getCurrentPosition(function(pp){ gotFix(pp,true); },function(){},
     {enableHighAccuracy:false,timeout:8000,maximumAge:30000});
+  armWatch();
+}
+function armWatch(){
   WID=navigator.geolocation.watchPosition(function(pp){ gotFix(pp,false); },locErr,
     {enableHighAccuracy:true,timeout:20000,maximumAge:0});
 }
@@ -1176,14 +1173,22 @@ function startWatch(el){
 function gotFix(pp,q){
   if(q && POS) return;   // never replace a GPS fix with the quick one
   POS={lat:pp.coords.latitude,lng:pp.coords.longitude,acc:pp.coords.accuracy,t:Date.now(),q:q};
-  var box=$(PBOX); if(!box) return;
+  var box=$(PBOX); if(!box){ locCheck(); return; }
   box.className='sub okc';
   box.textContent='Location found (±'+Math.round(POS.acc)+' m)'+(q?' · refining...':'');
   phoneName(POS.lat,POS.lng,function(){});   // the name is ready by the time the trip is saved
   drawMap();
+  locCheck();
 }
 
 function locErr(e){
+  if(e.code===3 && WID!==null){   // the GPS search timed out: search again instead of stopping
+    try{ navigator.geolocation.clearWatch(WID); }catch(x){}
+    armWatch();
+    var b3=$(PBOX); if(b3 && !POS){ b3.className='sub'; b3.textContent='Still looking for GPS...'; }
+    return;
+  }
+  if(LW && e.code===1){ var w=LW; clearInterval(w.tm); LW=null; w.reset(L_AGAIN); }   // blocked: no point waiting
   if(POS) return;   // keep the fix we already have
   var box=$(PBOX); if(!box) return;
   box.className='sub bad';
@@ -1272,19 +1277,34 @@ function fillMissing(){
   jobs.filter(function(j){return !TRIED[j[0]+j[1]];}).slice(0,3).forEach(function(j){ fetchPlace(j[0],j[1]); });
 }
 
-/* the screen's live GPS fix is ready: save right away; otherwise read once */
+/* Start, End and Add stop use the location the screen is already searching for (no second GPS read).
+   A fix within 300 m is saved at once; otherwise it waits up to 25 seconds for GPS to improve. */
+var LOCOK=300, LOCWAIT_S=25, LW=null;
+function locGood(){ return !!POS && POS.acc<=LOCOK && (WID!==null || Date.now()-POS.t<120000); }
+function locCancel(){
+  if(!LW) return;
+  var w=LW; clearInterval(w.tm); LW=null;
+  try{ w.reset(); }catch(e){}
+}
+function locCheck(){
+  if(!LW) return;
+  var w=LW;
+  if(locGood()){ clearInterval(w.tm); LW=null; w.ok(POS); return; }
+  var sec=Math.floor((Date.now()-w.t0)/1000);
+  if(sec>=LOCWAIT_S){
+    clearInterval(w.tm); LW=null;
+    if(POS && !POS.q) w.ok(POS);              // a real GPS fix, rougher than 300 m, is still used
+    else { w.reset(L_AGAIN); showLocAlert(); }
+    return;
+  }
+  w.lock('Waiting for GPS ('+sec+' s)...');
+}
 function needLoc(lock, reset, ok){
-  // a GPS fix, or a quick fix that is already within 100 m, is good enough; anything rougher waits for GPS
-  if(POS && (!POS.q || POS.acc<=100) && (WID!==null || Date.now()-POS.t<120000)){ ok(POS); return; }
-  if(!POS && WARM && WARM.acc<=100 && Date.now()-WARM.t<120000){ POS={lat:WARM.lat,lng:WARM.lng,acc:WARM.acc,t:WARM.t,q:true}; ok(POS); return; }
-  lock('Getting location...');
-  findLoc(12000,function(p,e){
-    if(p){ POS=p; ok(p); }
-    else {
-      reset(L_AGAIN);
-      showLocAlert();
-    }
-  });
+  if(locGood()){ ok(POS); return; }
+  if(WID===null && PBOX && navigator.geolocation) startWatch(PBOX);   // the screen's search had stopped: start it again
+  if(LW){ clearInterval(LW.tm); LW=null; }
+  LW={lock:lock,reset:reset,ok:ok,t0:Date.now(),tm:setInterval(locCheck,1000)};
+  locCheck();
 }
 
 /* ---------- start trip ---------- */
